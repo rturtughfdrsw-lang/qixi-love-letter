@@ -19,8 +19,13 @@ export function createGalleryController({ overlay, assets }) {
   let items = [];
   let lightboxIndex = -1;
   let returnFocus = null;
+  let lightboxReturnFocus = null;
   let pointerStartX = null;
   let destroyed = false;
+  const backgroundNodes = [
+    document.querySelector("#app-stage"),
+    document.querySelector("#music-toggle"),
+  ].filter(Boolean);
 
   const labels = {
     guo: { title: "郭静恬美照", subtitle: "被收藏下来的，每一个可爱的你" },
@@ -33,8 +38,10 @@ export function createGalleryController({ overlay, assets }) {
     overlay.replaceChildren();
     document.body.classList.remove("gallery-is-open");
     lightboxIndex = -1;
+    lightboxReturnFocus = null;
     kind = null;
     items = [];
+    for (const node of backgroundNodes) node.inert = false;
     const target = returnFocus;
     returnFocus = null;
     target?.focus?.({ preventScroll: true });
@@ -72,13 +79,16 @@ export function createGalleryController({ overlay, assets }) {
     if (!lightbox || lightbox.hidden) return;
     lightbox.hidden = true;
     lightboxIndex = -1;
-    overlay.querySelector(".gallery-close")?.focus({ preventScroll: true });
+    const target = lightboxReturnFocus;
+    lightboxReturnFocus = null;
+    target?.focus?.({ preventScroll: true });
   };
 
-  const openLightbox = (index) => {
+  const openLightbox = (index, trigger) => {
     const lightbox = overlay.querySelector(".lightbox");
     if (!lightbox) return;
     lightboxIndex = wrapIndex(index, items.length);
+    lightboxReturnFocus = trigger;
     lightbox.hidden = false;
     renderLightbox();
     lightbox.querySelector(".lightbox__close")?.focus({ preventScroll: true });
@@ -89,6 +99,8 @@ export function createGalleryController({ overlay, assets }) {
     lightbox.hidden = true;
     lightbox.dataset.noAdvance = "true";
     lightbox.setAttribute("aria-label", "照片大图浏览");
+    lightbox.setAttribute("aria-modal", "true");
+    lightbox.setAttribute("role", "dialog");
     const closeButton = element("button", "lightbox__close", "×");
     closeButton.type = "button";
     closeButton.setAttribute("aria-label", "关闭大图");
@@ -136,7 +148,7 @@ export function createGalleryController({ overlay, assets }) {
       image.loading = index < 3 ? "eager" : "lazy";
       image.decoding = "async";
       button.append(image);
-      button.addEventListener("click", () => openLightbox(index));
+      button.addEventListener("click", () => openLightbox(index, button));
       wall.append(button);
     });
     shell.append(header, closeButton, wall, createLightbox());
@@ -151,11 +163,35 @@ export function createGalleryController({ overlay, assets }) {
     renderGallery();
     overlay.hidden = false;
     document.body.classList.add("gallery-is-open");
+    for (const node of backgroundNodes) node.inert = true;
     overlay.querySelector(".gallery-close")?.focus({ preventScroll: true });
+  };
+
+  const trapFocus = (event) => {
+    if (event.key !== "Tab") return false;
+    const scope = lightboxIndex >= 0 ? overlay.querySelector(".lightbox") : overlay.querySelector(".gallery-shell");
+    const focusable = [...(scope?.querySelectorAll("button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])") ?? [])]
+      .filter((node) => !node.hidden && node.getClientRects().length > 0);
+    if (!focusable.length) return false;
+
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (!scope.contains(document.activeElement)) {
+      event.preventDefault();
+      first.focus();
+    } else if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+    return true;
   };
 
   const onKeyDown = (event) => {
     if (overlay.hidden) return;
+    if (trapFocus(event)) return;
     if (event.key === "Escape") {
       if (lightboxIndex >= 0) closeLightbox();
       else close();

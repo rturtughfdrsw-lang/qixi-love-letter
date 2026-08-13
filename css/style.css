@@ -1206,6 +1206,12 @@ img {
   animation: love-memory-in 0.95s calc(0.35s + var(--memory-index) * 0.12s) var(--ease-out) forwards;
 }
 
+.love-memory-photo.is-established {
+  opacity: 0.7;
+  transform: translateY(0) rotate(var(--memory-r)) scale(var(--memory-s));
+  animation: established-memory-in 0.42s ease both;
+}
+
 .love-memory-photo img {
   width: 100%;
   height: 100%;
@@ -1247,6 +1253,38 @@ img {
 
 .scene--last-quiet .letter-copy {
   box-shadow: 0 16px 45px rgba(91, 51, 62, 0.07);
+}
+
+.last-memory-remainder {
+  position: absolute;
+  z-index: 1;
+  inset: 5rem 0 4rem;
+  opacity: var(--remainder-opacity);
+  pointer-events: none;
+  transition: opacity 0.9s ease;
+}
+
+.last-memory-remainder__photo {
+  position: absolute;
+  width: clamp(7rem, 24vw, 12rem);
+  aspect-ratio: 0.78;
+  padding: 0.35rem 0.35rem 1rem;
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+  object-fit: cover;
+  filter: saturate(0.72);
+}
+
+.last-memory-remainder__photo:first-child {
+  top: 4%;
+  left: -2%;
+  transform: rotate(-6deg);
+}
+
+.last-memory-remainder__photo:last-child {
+  right: -2%;
+  bottom: 3%;
+  transform: rotate(5deg);
 }
 
 .last-copy--continued,
@@ -1351,6 +1389,11 @@ img {
     opacity: 0.92;
     transform: translateY(0) rotate(var(--memory-r)) scale(var(--memory-s));
   }
+}
+
+@keyframes established-memory-in {
+  from { opacity: 0.4; filter: blur(2px); }
+  to { opacity: 0.7; filter: none; }
 }
 
 @media (max-width: 580px) {

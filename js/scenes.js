@@ -42,6 +42,16 @@ export function selectMemoryBatch(paths, start, count) {
   return paths.slice(Math.max(0, start), Math.max(0, start) + Math.max(0, count));
 }
 
+export function selectLoveWindow(paths, beatIndex, batchSize = 3, limit = 10) {
+  const end = Math.min(paths.length, Math.max(0, beatIndex + 1) * batchSize);
+  const start = Math.max(0, end - limit);
+  return paths.slice(start, end);
+}
+
+export function shouldHandleSceneShortcut({ key, interactive, galleryOpen }) {
+  return (key === "Enter" || key === " ") && !interactive && !galleryOpen;
+}
+
 export function createScenePlayer({ stage, model, music, galleries, reducedMotion = false }) {
   let state = createSceneState();
   let destroyed = false;
@@ -489,11 +499,12 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
 
     const photoLayer = element("div", "love-memory-layer");
     photoLayer.setAttribute("aria-hidden", "true");
-    const mountedCount = Math.min(10, Math.max(4, (beatIndex + 1) * 3));
-    const selected = selectMemoryBatch(model.assets?.together ?? [], 0, mountedCount);
+    const togetherPhotos = model.assets?.together ?? [];
+    const selected = selectLoveWindow(togetherPhotos, beatIndex);
+    const newBatch = new Set(selectMemoryBatch(togetherPhotos, beatIndex * 3, 3));
     selected.forEach((src, index) => {
       const position = memoryPositions[index];
-      const frame = element("figure", "love-memory-photo");
+      const frame = element("figure", `love-memory-photo ${newBatch.has(src) ? "is-new" : "is-established"}`);
       frame.style.setProperty("--memory-x", position.x);
       frame.style.setProperty("--memory-y", position.y);
       frame.style.setProperty("--memory-r", position.r);
@@ -530,6 +541,20 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   const renderLastScene = (sceneModel, beat, beatIndex) => {
     const result = renderGenericScene(sceneModel, beat, beatIndex);
     result.scene.classList.add("scene--last-quiet");
+    if (beatIndex < 3) {
+      const remainder = element("div", "last-memory-remainder");
+      remainder.setAttribute("aria-hidden", "true");
+      remainder.style.setProperty("--remainder-opacity", String(0.28 - beatIndex * 0.09));
+      for (const src of (model.assets?.together ?? []).slice(-2)) {
+        const image = element("img", "last-memory-remainder__photo");
+        image.src = src;
+        image.alt = "";
+        image.loading = "lazy";
+        image.decoding = "async";
+        remainder.append(image);
+      }
+      result.scene.querySelector(".scene__inner").prepend(remainder);
+    }
     const copy = result.scene.querySelector(".letter-copy");
     if (beat.kind === "continued") copy.classList.add("last-copy--continued");
     if (beat.kind === "signature") copy.classList.add("last-copy--signature");
@@ -605,7 +630,9 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   };
 
   const onKeyDown = (event) => {
-    if ((event.key === "Enter" || event.key === " ") && state.phase === "waiting" && !state.locked) {
+    const interactive = Boolean(event.target?.closest?.("button, a, input, select, textarea, [contenteditable], [data-no-advance]"));
+    const galleryOpen = Boolean(galleries?.isOpen?.());
+    if (shouldHandleSceneShortcut({ key: event.key, interactive, galleryOpen }) && state.phase === "waiting" && !state.locked) {
       event.preventDefault();
       next();
     }

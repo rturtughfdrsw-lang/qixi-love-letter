@@ -7,7 +7,9 @@ import {
   createSceneState,
   formatElapsed,
   resetSceneState,
+  selectLoveWindow,
   selectMemoryBatch,
+  shouldHandleSceneShortcut,
 } from "../js/scenes.js";
 
 function createButtonDouble() {
@@ -151,4 +153,20 @@ test("gallery navigation wraps in both directions", () => {
 test("replay state always returns to the unopened envelope", () => {
   const current = { sceneIndex: 9, beatIndex: 2, phase: "waiting", locked: false };
   assert.deepEqual(resetSceneState(current), createSceneState());
+});
+
+test("scene keyboard shortcuts ignore interactive controls and open galleries", () => {
+  assert.equal(shouldHandleSceneShortcut({ key: " ", interactive: false, galleryOpen: false }), true);
+  assert.equal(shouldHandleSceneShortcut({ key: "Enter", interactive: false, galleryOpen: false }), true);
+  assert.equal(shouldHandleSceneShortcut({ key: " ", interactive: true, galleryOpen: false }), false);
+  assert.equal(shouldHandleSceneShortcut({ key: "Enter", interactive: false, galleryOpen: true }), false);
+  assert.equal(shouldHandleSceneShortcut({ key: "ArrowRight", interactive: false, galleryOpen: false }), false);
+});
+
+test("love climax advances through all photos while keeping at most ten mounted", () => {
+  const photos = Array.from({ length: 20 }, (_, index) => `photo-${index + 1}`);
+
+  assert.deepEqual(selectLoveWindow(photos, 0), ["photo-1", "photo-2", "photo-3"]);
+  assert.deepEqual(selectLoveWindow(photos, 3), photos.slice(2, 12));
+  assert.deepEqual(selectLoveWindow(photos, 6), photos.slice(10, 20));
 });
