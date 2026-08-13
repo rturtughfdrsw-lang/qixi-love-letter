@@ -223,27 +223,51 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     stage.append(scene);
   };
 
-  const createParagraphs = (paragraphs) => {
-    const copy = element("div", "letter-copy memory-copy");
-    paragraphs.forEach((paragraph, index) => {
+  const updateCopyContents = (copy, paragraphs) => {
+    const lines = paragraphs.map((paragraph, index) => {
       const line = element("p", "animated-line");
       line.setAttribute("aria-label", paragraph);
       line.style.setProperty("--line-index", index);
-      copy.append(line);
+      return line;
     });
+    copy.replaceChildren(...lines);
+    return lines;
+  };
+
+  const createParagraphs = (paragraphs) => {
+    const copy = element("div", "letter-copy memory-copy");
+    updateCopyContents(copy, paragraphs);
     return copy;
   };
 
-  const createPhotoCard = (item, index, isCurrent) => {
+  const animateOnce = (node, className, duration = 1200) => {
+    node.classList.add(className);
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      node.classList.remove(className);
+      node.removeEventListener("animationend", settle);
+      clearTimeout(timeout);
+      timeouts.delete(timeout);
+    };
+    node.addEventListener("animationend", settle, { once: true });
+    const timeout = setTimeout(settle, reducedMotion ? 40 : duration);
+    timeouts.add(timeout);
+  };
+
+  const createPhotoCard = (item, slot, isCurrent) => {
     const figure = element("figure", `photo-card memory-photo ${isCurrent ? "is-current" : "is-memory"}`);
     figure.dataset.src = item.src;
-    figure.style.setProperty("--photo-index", index);
+    figure.dataset.slot = String(slot % 4);
+    figure.style.setProperty("--photo-index", slot);
     const image = element("img");
     image.src = item.src;
     image.alt = item.alt;
     image.loading = isCurrent ? "eager" : "lazy";
     image.decoding = "async";
     figure.append(image);
+    animateOnce(figure, "is-entering-photo");
     return figure;
   };
 
@@ -279,9 +303,11 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     const copy = createParagraphs(beat.paragraphs);
     const mediaStage = element("div", "memory-media");
     mediaStage.setAttribute("aria-label", "与这段文字对应的照片");
-    const visibleMedia = mediaThroughBeat(sceneModel, beatIndex, sceneModel.id === "gifts" ? 4 : 3);
-    visibleMedia.forEach((item, index) => {
-      mediaStage.append(createPhotoCard(item, index, index === visibleMedia.length - 1 || beat.media.includes(item)));
+    const allMedia = sceneModel.beats.flatMap((entry) => entry.media);
+    const visibleMedia = mediaThroughBeat(sceneModel, beatIndex, 4);
+    visibleMedia.forEach((item) => {
+      const slot = allMedia.findIndex(({ src }) => src === item.src);
+      mediaStage.append(createPhotoCard(item, slot, true));
     });
 
     if (sceneModel.id === "gifts") {
@@ -320,12 +346,11 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     scene.dataset.beat = String(beatIndex);
     scene.querySelector(".scene-heading__progress").textContent = `${String(beatIndex + 1).padStart(2, "0")} / ${String(sceneModel.beats.length).padStart(2, "0")}`;
 
-    const oldCopy = scene.querySelector(".letter-copy");
-    const copy = createParagraphs(beat.paragraphs);
-    oldCopy.replaceWith(copy);
+    const copy = scene.querySelector(".letter-copy");
+    updateCopyContents(copy, beat.paragraphs);
 
     const mediaStage = scene.querySelector(".memory-media");
-    const limit = sceneModel.id === "gifts" ? 4 : 3;
+    const limit = 4;
     const desiredMedia = mediaThroughBeat(sceneModel, beatIndex, limit);
     const desiredPaths = desiredMedia.map(({ src }) => src);
     const currentPaths = [...mediaStage.children].map(({ dataset }) => dataset.src);
@@ -334,19 +359,12 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     for (const card of [...mediaStage.children]) {
       if (changes.removed.includes(card.dataset.src)) card.remove();
     }
-    desiredMedia.forEach((item, index) => {
-      let card = [...mediaStage.children].find(({ dataset }) => dataset.src === item.src);
-      const isCurrent = index === desiredMedia.length - 1 || beat.media.some(({ src }) => src === item.src);
-      if (!card) {
-        card = createPhotoCard(item, index, isCurrent);
-        card.classList.add("is-new-photo");
-      } else {
-        card.classList.toggle("is-current", isCurrent);
-        card.classList.toggle("is-memory", !isCurrent);
-        card.style.setProperty("--photo-index", index);
-      }
-      mediaStage.append(card);
-    });
+    const allMedia = sceneModel.beats.flatMap((entry) => entry.media);
+    for (const src of changes.added) {
+      const item = desiredMedia.find((entry) => entry.src === src);
+      const slot = allMedia.findIndex((entry) => entry.src === src);
+      mediaStage.append(createPhotoCard(item, slot, true));
+    }
 
     const counter = scene.querySelector(".gift-counter__current");
     if (counter) counter.textContent = beatIndex ? String(Math.min(10, beatIndex)).padStart(2, "0") : "♡";
@@ -474,7 +492,19 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     const scene = stage.querySelector(".scene--handmade");
     if (!scene) return renderHandmadeScene(sceneModel, beat, beatIndex);
     scene.querySelector(".scene-heading__progress").textContent = `${String(beatIndex + 1).padStart(2, "0")} / ${String(sceneModel.beats.length).padStart(2, "0")}`;
-    scene.querySelector(".letter-copy").replaceWith(createParagraphs(beat.paragraphs));
+    updateCopyContents(scene.querySelector(".letter-copy"), beat.paragraphs);
+    const hint = scene.querySelector(".continue-hint");
+    hint.classList.remove("is-visible");
+    hint.hidden = true;
+    return { scene, hint };
+  };
+
+  const updateGenericScene = (sceneModel, beat, beatIndex) => {
+    const scene = stage.querySelector(`.scene--${sceneModel.id}`);
+    if (!scene) return renderGenericScene(sceneModel, beat, beatIndex);
+    scene.dataset.beat = String(beatIndex);
+    scene.querySelector(".scene-heading__progress").textContent = `${String(beatIndex + 1).padStart(2, "0")} / ${String(sceneModel.beats.length).padStart(2, "0")}`;
+    updateCopyContents(scene.querySelector(".letter-copy"), beat.paragraphs);
     const hint = scene.querySelector(".continue-hint");
     hint.classList.remove("is-visible");
     hint.hidden = true;
@@ -504,55 +534,90 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     return result;
   };
 
-  const renderChangeScene = (sceneModel, beat, beatIndex) => {
-    const result = renderGenericScene(sceneModel, beat, beatIndex);
-    result.scene.classList.add("scene--change-quiet");
-    result.scene.querySelectorAll(".animated-line").forEach((line) => {
+  const updateFutureScene = (sceneModel, beat, beatIndex) => {
+    const result = updateGenericScene(sceneModel, beat, beatIndex);
+    const inner = result.scene.querySelector(".scene__inner");
+    if (beat.media.length && !inner.querySelector(".future-gif")) {
+      const gif = element("img", "future-gif");
+      gif.src = beat.media[0].src;
+      gif.alt = beat.media[0].alt;
+      gif.loading = "lazy";
+      gif.decoding = "async";
+      inner.append(gif);
+    }
+    return result;
+  };
+
+  const styleChangeLines = (scene) => {
+    scene.querySelectorAll(".animated-line").forEach((line) => {
       const paragraph = line.getAttribute("aria-label") ?? "";
       if (paragraph === "“没事。”" || paragraph.includes("那句“没事”")) line.classList.add("line--never-mind");
       if (paragraph.includes("我想变成一个更会表达爱的人。")) line.classList.add("line--love-expression");
     });
-    return result;
   };
 
-  const renderCounterScene = (sceneModel, beat, beatIndex) => {
+  const renderChangeScene = (sceneModel, beat, beatIndex) => {
     const result = renderGenericScene(sceneModel, beat, beatIndex);
-    if (beat.kind !== "counter-display") return result;
-
-    const copy = result.scene.querySelector(".letter-copy");
-    const counter = element("div", "relationship-counter");
-    counter.setAttribute("role", "timer");
-    counter.setAttribute("aria-live", "off");
-    const days = element("strong", "relationship-counter__days");
-    const daysLabel = element("span", "relationship-counter__days-label", "天");
-    const clock = element("p", "relationship-counter__clock");
-    counter.append(
-      element("span", "relationship-counter__eyebrow", "我们已经在一起"),
-      element("div", "relationship-counter__day-row"),
-      clock,
-    );
-    counter.querySelector(".relationship-counter__day-row").append(days, daysLabel);
-    copy.after(counter);
-
-    let previous = "";
-    const update = () => {
-      const formatted = formatElapsed(calculateElapsed(relationshipStart));
-      const next = `${formatted.days}|${formatted.clock}`;
-      days.textContent = formatted.days;
-      clock.textContent = formatted.clock;
-      if (previous && previous !== next) counter.classList.remove("is-ticking");
-      requestAnimationFrame(() => counter.classList.add("is-ticking"));
-      previous = next;
-      const wait = 1000 - (Date.now() % 1000) + 5;
-      const timeout = setTimeout(() => {
-        timeouts.delete(timeout);
-        update();
-      }, wait);
-      timeouts.add(timeout);
-    };
-    update();
+    result.scene.classList.add("scene--change-quiet");
+    styleChangeLines(result.scene);
     return result;
   };
+
+  const updateChangeScene = (sceneModel, beat, beatIndex) => {
+    const result = updateGenericScene(sceneModel, beat, beatIndex);
+    styleChangeLines(result.scene);
+    return result;
+  };
+
+  const syncRelationshipCounter = (result, visible) => {
+    let counter = result.scene.querySelector(".relationship-counter");
+    if (!counter && visible) {
+      const copy = result.scene.querySelector(".letter-copy");
+      counter = element("div", "relationship-counter");
+      counter.setAttribute("role", "timer");
+      counter.setAttribute("aria-live", "off");
+      const days = element("strong", "relationship-counter__days");
+      const daysLabel = element("span", "relationship-counter__days-label", "天");
+      const clock = element("p", "relationship-counter__clock");
+      counter.append(
+        element("span", "relationship-counter__eyebrow", "我们已经在一起"),
+        element("div", "relationship-counter__day-row"),
+        clock,
+      );
+      counter.querySelector(".relationship-counter__day-row").append(days, daysLabel);
+      copy.after(counter);
+
+      let previous = "";
+      const update = () => {
+        const formatted = formatElapsed(calculateElapsed(relationshipStart));
+        const next = `${formatted.days}|${formatted.clock}`;
+        days.textContent = formatted.days;
+        clock.textContent = formatted.clock;
+        if (previous && previous !== next) counter.classList.remove("is-ticking");
+        requestAnimationFrame(() => counter.classList.add("is-ticking"));
+        previous = next;
+        const wait = 1000 - (Date.now() % 1000) + 5;
+        const timeout = setTimeout(() => {
+          timeouts.delete(timeout);
+          if (counter.isConnected) update();
+        }, wait);
+        timeouts.add(timeout);
+      };
+      update();
+    }
+    if (counter) counter.hidden = !visible;
+    return result;
+  };
+
+  const renderCounterScene = (sceneModel, beat, beatIndex) => syncRelationshipCounter(
+    renderGenericScene(sceneModel, beat, beatIndex),
+    beat.kind === "counter-display",
+  );
+
+  const updateCounterScene = (sceneModel, beat, beatIndex) => syncRelationshipCounter(
+    updateGenericScene(sceneModel, beat, beatIndex),
+    beat.kind === "counter-display",
+  );
 
   const memoryPositions = [
     { x: "-5%", y: "4%", r: "-7deg", s: 0.92 },
@@ -566,6 +631,25 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     { x: "21%", y: "70%", r: "-4deg", s: 0.64 },
     { x: "63%", y: "-7%", r: "-3deg", s: 0.66 },
   ];
+
+  const createLovePhoto = (src, globalIndex) => {
+    const position = memoryPositions[globalIndex % memoryPositions.length];
+    const frame = element("figure", "love-memory-photo");
+    frame.dataset.src = src;
+    frame.style.setProperty("--memory-x", position.x);
+    frame.style.setProperty("--memory-y", position.y);
+    frame.style.setProperty("--memory-r", position.r);
+    frame.style.setProperty("--memory-s", position.s);
+    frame.style.setProperty("--memory-index", globalIndex % memoryPositions.length);
+    const image = element("img");
+    image.src = src;
+    image.alt = "";
+    image.loading = "lazy";
+    image.decoding = "async";
+    frame.append(image);
+    animateOnce(frame, "is-entering-photo");
+    return frame;
+  };
 
   const renderLoveScene = (sceneModel, beat, beatIndex) => {
     stage.replaceChildren();
@@ -583,22 +667,8 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     photoLayer.setAttribute("aria-hidden", "true");
     const togetherPhotos = model.assets?.together ?? [];
     const selected = selectLoveWindow(togetherPhotos, beatIndex);
-    const newBatch = new Set(selectMemoryBatch(togetherPhotos, beatIndex * 3, 3));
-    selected.forEach((src, index) => {
-      const position = memoryPositions[index];
-      const frame = element("figure", `love-memory-photo ${newBatch.has(src) ? "is-new" : "is-established"}`);
-      frame.style.setProperty("--memory-x", position.x);
-      frame.style.setProperty("--memory-y", position.y);
-      frame.style.setProperty("--memory-r", position.r);
-      frame.style.setProperty("--memory-s", position.s);
-      frame.style.setProperty("--memory-index", index);
-      const image = element("img");
-      image.src = src;
-      image.alt = "";
-      image.loading = index < 2 ? "eager" : "lazy";
-      image.decoding = "async";
-      frame.append(image);
-      photoLayer.append(frame);
+    selected.forEach((src) => {
+      photoLayer.append(createLovePhoto(src, togetherPhotos.indexOf(src)));
     });
 
     const copy = createParagraphs(beat.paragraphs);
@@ -620,13 +690,41 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     return { scene, hint };
   };
 
-  const renderLastScene = (sceneModel, beat, beatIndex) => {
-    const result = renderGenericScene(sceneModel, beat, beatIndex);
-    result.scene.classList.add("scene--last-quiet");
-    if (beatIndex < 3) {
-      const remainder = element("div", "last-memory-remainder");
+  const updateLoveScene = (sceneModel, beat, beatIndex) => {
+    const scene = stage.querySelector(".scene--love");
+    if (!scene) return renderLoveScene(sceneModel, beat, beatIndex);
+    scene.classList.toggle("is-declaration", beat.kind === "love-declaration");
+    scene.classList.toggle("is-need", beat.kind === "love-need");
+    scene.querySelector(".scene-heading__progress").textContent = `${String(beatIndex + 1).padStart(2, "0")} / ${String(sceneModel.beats.length).padStart(2, "0")}`;
+
+    const copy = scene.querySelector(".letter-copy");
+    copy.classList.toggle("love-copy--declaration", beat.kind === "love-declaration");
+    copy.classList.toggle("love-copy--need", beat.kind === "love-need");
+    updateCopyContents(copy, beat.paragraphs);
+
+    const togetherPhotos = model.assets?.together ?? [];
+    const selected = selectLoveWindow(togetherPhotos, beatIndex);
+    const photoLayer = scene.querySelector(".love-memory-layer");
+    const current = [...photoLayer.children].map(({ dataset }) => dataset.src);
+    const changes = reconcileMediaPaths(current, selected, 10);
+    for (const frame of [...photoLayer.children]) {
+      if (changes.removed.includes(frame.dataset.src)) frame.remove();
+    }
+    for (const src of changes.added) {
+      photoLayer.append(createLovePhoto(src, togetherPhotos.indexOf(src)));
+    }
+
+    const hint = scene.querySelector(".continue-hint");
+    hint.classList.remove("is-visible");
+    hint.hidden = true;
+    return { scene, hint };
+  };
+
+  const syncLastScene = (result, beat, beatIndex) => {
+    let remainder = result.scene.querySelector(".last-memory-remainder");
+    if (beatIndex < 3 && !remainder) {
+      remainder = element("div", "last-memory-remainder");
       remainder.setAttribute("aria-hidden", "true");
-      remainder.style.setProperty("--remainder-opacity", String(0.28 - beatIndex * 0.09));
       for (const src of (model.assets?.together ?? []).slice(-2)) {
         const image = element("img", "last-memory-remainder__photo");
         image.src = src;
@@ -637,11 +735,27 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
       }
       result.scene.querySelector(".scene__inner").prepend(remainder);
     }
+    if (remainder) {
+      remainder.style.setProperty("--remainder-opacity", String(Math.max(0, 0.28 - beatIndex * 0.09)));
+      remainder.hidden = beatIndex >= 3;
+    }
     const copy = result.scene.querySelector(".letter-copy");
-    if (beat.kind === "continued") copy.classList.add("last-copy--continued");
-    if (beat.kind === "signature") copy.classList.add("last-copy--signature");
+    copy.classList.toggle("last-copy--continued", beat.kind === "continued");
+    copy.classList.toggle("last-copy--signature", beat.kind === "signature");
     return result;
   };
+
+  const renderLastScene = (sceneModel, beat, beatIndex) => {
+    const result = renderGenericScene(sceneModel, beat, beatIndex);
+    result.scene.classList.add("scene--last-quiet");
+    return syncLastScene(result, beat, beatIndex);
+  };
+
+  const updateLastScene = (sceneModel, beat, beatIndex) => syncLastScene(
+    updateGenericScene(sceneModel, beat, beatIndex),
+    beat,
+    beatIndex,
+  );
 
   const renderMenuScene = (sceneModel) => {
     stage.replaceChildren();
@@ -681,18 +795,29 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   const renderCurrentBeat = () => {
     const sceneModel = model.scenes[state.sceneIndex];
     const beat = sceneModel.beats[state.beatIndex];
+    const sameScene = stage.querySelector(".scene")?.dataset.scene === sceneModel.id;
     if (sceneModel.id === "menu") return renderMenuScene(sceneModel);
-    if (sceneModel.id === "love") return renderLoveScene(sceneModel, beat, state.beatIndex);
-    if (sceneModel.id === "last") return renderLastScene(sceneModel, beat, state.beatIndex);
+    if (sceneModel.id === "love") return sameScene
+      ? updateLoveScene(sceneModel, beat, state.beatIndex)
+      : renderLoveScene(sceneModel, beat, state.beatIndex);
+    if (sceneModel.id === "last") return sameScene
+      ? updateLastScene(sceneModel, beat, state.beatIndex)
+      : renderLastScene(sceneModel, beat, state.beatIndex);
     if (sceneModel.id === "handmade") {
       if (stage.querySelector(".scene--handmade")) {
         return updateHandmadeScene(sceneModel, beat, state.beatIndex);
       }
       return renderHandmadeScene(sceneModel, beat, state.beatIndex);
     }
-    if (sceneModel.id === "future") return renderFutureScene(sceneModel, beat, state.beatIndex);
-    if (sceneModel.id === "change") return renderChangeScene(sceneModel, beat, state.beatIndex);
-    if (sceneModel.id === "counter") return renderCounterScene(sceneModel, beat, state.beatIndex);
+    if (sceneModel.id === "future") return sameScene
+      ? updateFutureScene(sceneModel, beat, state.beatIndex)
+      : renderFutureScene(sceneModel, beat, state.beatIndex);
+    if (sceneModel.id === "change") return sameScene
+      ? updateChangeScene(sceneModel, beat, state.beatIndex)
+      : renderChangeScene(sceneModel, beat, state.beatIndex);
+    if (sceneModel.id === "counter") return sameScene
+      ? updateCounterScene(sceneModel, beat, state.beatIndex)
+      : renderCounterScene(sceneModel, beat, state.beatIndex);
     if (sceneModel.id === "letter" || sceneModel.id === "gifts") {
       if (stage.querySelector(`.scene--${sceneModel.id}`)) {
         return updateMemoryScene(sceneModel, beat, state.beatIndex);

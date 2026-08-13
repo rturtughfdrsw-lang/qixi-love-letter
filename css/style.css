@@ -722,30 +722,29 @@ img {
   width: clamp(8rem, 34vw, 15rem);
   aspect-ratio: 0.78;
   margin: 0;
-  opacity: 0;
-  transform: translate(2rem, 2rem) rotate(8deg) scale(0.84);
-  animation: memory-photo-in 0.95s calc(0.48s + var(--photo-index) * 0.13s) var(--ease-out) forwards;
+  opacity: 1;
+  transform: none;
 }
 
-.memory-photo:nth-child(1) {
+.memory-photo[data-slot="0"] {
   top: 2%;
   left: -10%;
   rotate: -8deg;
 }
 
-.memory-photo:nth-child(2) {
+.memory-photo[data-slot="1"] {
   right: -11%;
   bottom: 3%;
   rotate: 7deg;
 }
 
-.memory-photo:nth-child(3) {
+.memory-photo[data-slot="2"] {
   top: 4%;
   right: -9%;
   rotate: 4deg;
 }
 
-.memory-photo:nth-child(4) {
+.memory-photo[data-slot="3"] {
   bottom: -2%;
   left: -8%;
   rotate: -5deg;
@@ -760,9 +759,9 @@ img {
   z-index: 4;
 }
 
-.memory-photo.is-new-photo {
+.memory-photo.is-entering-photo {
   z-index: 5;
-  animation-name: memory-photo-cover-in;
+  animation: memory-photo-cover-in 0.95s var(--ease-out) both;
 }
 
 .scene--gifts .memory-copy {
@@ -903,10 +902,10 @@ img {
     min-height: 31rem;
   }
 
-  .memory-photo:nth-child(1) { top: 8%; left: 1%; }
-  .memory-photo:nth-child(2) { right: 0; bottom: 6%; }
-  .memory-photo:nth-child(3) { top: 0; right: 5%; }
-  .memory-photo:nth-child(4) { bottom: 0; left: 11%; }
+  .memory-photo[data-slot="0"] { top: 8%; left: 1%; }
+  .memory-photo[data-slot="1"] { right: 0; bottom: 6%; }
+  .memory-photo[data-slot="2"] { top: 0; right: 5%; }
+  .memory-photo[data-slot="3"] { bottom: 0; left: 11%; }
 
   .gift-counter {
     top: 13%;
@@ -1281,15 +1280,12 @@ img {
   border-radius: 0.25rem;
   background: #fff;
   box-shadow: var(--shadow-card);
-  opacity: 0;
-  transform: translateY(2rem) rotate(var(--memory-r)) scale(calc(var(--memory-s) * 0.75));
-  animation: love-memory-in 0.95s calc(0.35s + var(--memory-index) * 0.12s) var(--ease-out) forwards;
-}
-
-.love-memory-photo.is-established {
   opacity: 0.7;
   transform: translateY(0) rotate(var(--memory-r)) scale(var(--memory-s));
-  animation: established-memory-in 0.42s ease both;
+}
+
+.love-memory-photo.is-entering-photo {
+  animation: love-memory-in 0.95s var(--ease-out) both;
 }
 
 .love-memory-photo img {

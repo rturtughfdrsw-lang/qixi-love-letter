@@ -152,6 +152,13 @@ test("media reconciliation keeps existing paths and adds only the new top photo"
   );
 });
 
+test("media reconciliation does not describe retained photos as additions", () => {
+  const result = reconcileMediaPaths(["01", "02", "03"], ["01", "02", "03", "04"], 4);
+  assert.deepEqual(result.kept, ["01", "02", "03"]);
+  assert.deepEqual(result.added, ["04"]);
+  assert.deepEqual(result.removed, []);
+});
+
 test("formats relationship time with stable two-digit clock fields", () => {
   assert.deepEqual(
     formatElapsed({ days: 65, hours: 1, minutes: 2, seconds: 3 }),
