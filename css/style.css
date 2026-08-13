@@ -292,6 +292,10 @@ img {
   transition: background 1.8s var(--ease-soft);
 }
 
+.app-stage--opening.is-letter-open {
+  background: linear-gradient(150deg, #fffaf4, #f7dddd 64%, #efccd1);
+}
+
 .scene--opening {
   place-items: center;
   overflow: hidden;
@@ -443,6 +447,7 @@ img {
   box-shadow: var(--shadow-card);
   color: var(--ink);
   opacity: 0;
+  pointer-events: none;
   transform: translate(-50%, -38%) scale(0.96);
   backdrop-filter: blur(13px);
   transition: opacity 1.05s var(--ease-soft), transform 1.05s var(--ease-soft);
@@ -1481,8 +1486,11 @@ body.gallery-is-open {
   width: 100%;
   margin: 0 0 0.9rem;
   break-inside: avoid;
-  transform: rotate(calc((var(--gallery-index) % 5 - 2) * 0.6deg));
+  transform: rotate(-0.6deg);
 }
+
+.together-gallery__photo:nth-child(3n + 2) { transform: rotate(0.55deg); }
+.together-gallery__photo:nth-child(3n) { transform: rotate(-0.2deg); }
 
 .together-gallery__photo img {
   width: 100%;
@@ -1616,6 +1624,10 @@ body.gallery-is-open {
 @media (max-height: 620px) {
   .scene {
     overflow-y: auto;
+  }
+
+  .scene--opening {
+    overflow-y: hidden;
   }
 
   .scene__inner {

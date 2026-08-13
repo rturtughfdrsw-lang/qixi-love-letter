@@ -81,3 +81,37 @@ test("declares every numbered gift in order", () => {
   assert.equal(assets.gifts[1], "assets/images/daily-gifts/02、.png");
   assert.equal(assets.gifts[9], "assets/images/daily-gifts/10.jpg");
 });
+
+test("preserves every visible source character while removing only explicit developer notes", () => {
+  const blocks = source.replace(/\r\n?/g, "\n").split(/^\s*---\s*$/m);
+  let expected = blocks.slice(0, 9).join("\n");
+  const explicitNotes = [
+    "（开场素材：可由 Codex 自由设计，不需要照片。鲜花、气球、信封等动画元素由 Codex 自行完成。）",
+    "（配图：assets/素材/01）",
+    "（配图：assets/素材/03）",
+    "（配图：assets/素材/04）",
+    "（E:\\七夕\\assets\\images\\daily-gifts\\01）",
+    "（E:\\七夕\\assets\\images\\daily-gifts\\02下面统一简写为数字）",
+    "（03",
+    "（04 05 06",
+    "（上面这个daily gift你觉得文字逐渐打出来 每张图片单独给动画怎么样）",
+    "(配上”手工书“文件夹直接用堆叠的那种感觉然后侧面要体现参差感你懂吗）",
+    "（assets/素材/05",
+    "（这里放“我们在一起多久”的实时计时器）",
+    "（从六月十号零点开始计时",
+    "（together文件夹不断弹出照片",
+  ];
+  for (const note of explicitNotes) expected = expected.replaceAll(note, "");
+  expected = expected
+    .replace("刷牙杯07", "刷牙杯")
+    .replace("护身符08", "护身符")
+    .replace("（好多好多）09", "（好多好多）")
+    .replace("背包10", "背包")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replaceAll("**", "")
+    .replace(/\s/g, "")
+    .trim();
+
+  const actual = visibleParagraphs(parseLetterSource(source)).join("").replace(/\s/g, "").trim();
+  assert.equal(actual, expected);
+});
