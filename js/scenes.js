@@ -9,11 +9,36 @@ export function createSceneState() {
   return { sceneIndex: 0, beatIndex: 0, phase: "opening", locked: false };
 }
 
+export function advanceState(state, { beatCount, sceneCount }) {
+  if (state.locked || state.phase !== "waiting") return { ...state };
+
+  if (state.beatIndex < beatCount - 1) {
+    return { ...state, beatIndex: state.beatIndex + 1, phase: "entering", locked: true };
+  }
+
+  if (state.sceneIndex < sceneCount - 1) {
+    return { ...state, sceneIndex: state.sceneIndex + 1, beatIndex: 0, phase: "entering", locked: true };
+  }
+
+  return { ...state };
+}
+
 export function createScenePlayer({ stage, model, music, galleries, reducedMotion = false }) {
   let state = createSceneState();
   let destroyed = false;
   const timeouts = new Set();
   const cleanups = new Set();
+  const sceneLabels = {
+    letter: "LETTER · 02",
+    gifts: "MEMORIES · GIFTS",
+    handmade: "MEMORY · HANDMADE BOOK",
+    future: "OUR FUTURE",
+    change: "LETTER · CHANGE",
+    counter: "OUR TIME",
+    love: "LETTER · LOVE",
+    last: "LAST PART",
+    menu: "TO BE CONTINUED",
+  };
 
   const delay = (milliseconds) => new Promise((resolve) => {
     const duration = reducedMotion ? Math.min(milliseconds, 30) : milliseconds;
@@ -136,6 +161,140 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     stage.append(scene);
   };
 
+  const createParagraphs = (paragraphs) => {
+    const copy = element("div", "letter-copy memory-copy");
+    paragraphs.forEach((paragraph, index) => {
+      const line = element("p", "animated-line", paragraph);
+      line.style.setProperty("--line-index", index);
+      copy.append(line);
+    });
+    return copy;
+  };
+
+  const createPhotoCard = (item, index, isCurrent) => {
+    const figure = element("figure", `photo-card memory-photo ${isCurrent ? "is-current" : "is-memory"}`);
+    figure.style.setProperty("--photo-index", index);
+    const image = element("img");
+    image.src = item.src;
+    image.alt = item.alt;
+    image.loading = isCurrent ? "eager" : "lazy";
+    image.decoding = "async";
+    figure.append(image);
+    return figure;
+  };
+
+  const mediaThroughBeat = (scene, beatIndex, limit = 4) => scene.beats
+    .slice(0, beatIndex + 1)
+    .flatMap((beat) => beat.media)
+    .slice(-limit);
+
+  const preloadUpcomingMedia = () => {
+    const scene = model.scenes[state.sceneIndex];
+    const upcoming = scene.beats[state.beatIndex + 1] ?? model.scenes[state.sceneIndex + 1]?.beats[0];
+    for (const item of upcoming?.media ?? []) {
+      const image = new Image();
+      image.decoding = "async";
+      image.src = item.src;
+    }
+  };
+
+  const renderMemoryScene = (sceneModel, beat, beatIndex) => {
+    stage.replaceChildren();
+    stage.className = `app-stage app-stage--${sceneModel.id}`;
+
+    const scene = element("section", `scene scene--memory scene--${sceneModel.id} is-entering`);
+    scene.dataset.scene = sceneModel.id;
+    scene.dataset.beat = String(beatIndex);
+    const inner = element("div", "scene__inner memory-layout");
+    const header = element("header", "scene-heading");
+    header.append(
+      element("span", "scene-heading__label", sceneLabels[sceneModel.id] ?? "LETTER"),
+      element("span", "scene-heading__progress", `${String(beatIndex + 1).padStart(2, "0")} / ${String(sceneModel.beats.length).padStart(2, "0")}`),
+    );
+
+    const copy = createParagraphs(beat.paragraphs);
+    const mediaStage = element("div", "memory-media");
+    mediaStage.setAttribute("aria-label", "与这段文字对应的照片");
+    const visibleMedia = mediaThroughBeat(sceneModel, beatIndex, sceneModel.id === "gifts" ? 4 : 3);
+    visibleMedia.forEach((item, index) => {
+      mediaStage.append(createPhotoCard(item, index, index === visibleMedia.length - 1 || beat.media.includes(item)));
+    });
+
+    if (sceneModel.id === "gifts") {
+      const giftNumber = Math.min(10, Math.max(0, beatIndex));
+      const counter = element("div", "gift-counter");
+      counter.setAttribute("aria-hidden", "true");
+      counter.append(
+        element("span", "gift-counter__current", giftNumber ? String(giftNumber).padStart(2, "0") : "♡"),
+        element("span", "gift-counter__line"),
+        element("span", "gift-counter__total", "10"),
+      );
+      inner.append(counter);
+    }
+
+    const hint = element("button", "continue-hint");
+    hint.type = "button";
+    hint.hidden = true;
+    hint.setAttribute("aria-label", "继续阅读");
+    hint.append(element("span", "continue-hint__heart", "♡"), document.createTextNode("轻触继续"));
+    hint.addEventListener("click", (event) => {
+      event.stopPropagation();
+      next();
+    });
+
+    inner.append(header, copy, mediaStage, hint);
+    scene.append(inner);
+    stage.append(scene);
+    requestAnimationFrame(() => scene.classList.add("is-visible"));
+    preloadUpcomingMedia();
+    return { scene, hint };
+  };
+
+  const renderGenericScene = (sceneModel, beat, beatIndex) => {
+    stage.replaceChildren();
+    stage.className = `app-stage app-stage--${sceneModel.id}`;
+    const scene = element("section", `scene scene--memory scene--${sceneModel.id} is-entering`);
+    scene.dataset.scene = sceneModel.id;
+    const inner = element("div", "scene__inner memory-layout memory-layout--quiet");
+    const header = element("header", "scene-heading");
+    header.append(
+      element("span", "scene-heading__label", sceneLabels[sceneModel.id] ?? "LETTER"),
+      element("span", "scene-heading__progress", `${String(beatIndex + 1).padStart(2, "0")} / ${String(sceneModel.beats.length).padStart(2, "0")}`),
+    );
+    const hint = element("button", "continue-hint");
+    hint.type = "button";
+    hint.hidden = true;
+    hint.textContent = "♡ 轻触继续";
+    hint.addEventListener("click", (event) => {
+      event.stopPropagation();
+      next();
+    });
+    inner.append(header, createParagraphs(beat.paragraphs), hint);
+    scene.append(inner);
+    stage.append(scene);
+    requestAnimationFrame(() => scene.classList.add("is-visible"));
+    return { scene, hint };
+  };
+
+  const renderCurrentBeat = () => {
+    const sceneModel = model.scenes[state.sceneIndex];
+    const beat = sceneModel.beats[state.beatIndex];
+    if (sceneModel.id === "letter" || sceneModel.id === "gifts") {
+      return renderMemoryScene(sceneModel, beat, state.beatIndex);
+    }
+    return renderGenericScene(sceneModel, beat, state.beatIndex);
+  };
+
+  const enterCurrentBeat = async () => {
+    const { hint } = renderCurrentBeat();
+    const paragraphCount = model.scenes[state.sceneIndex].beats[state.beatIndex].paragraphs.length;
+    await delay(Math.min(1900, 620 + paragraphCount * 210));
+    if (destroyed) return;
+    hint.hidden = false;
+    requestAnimationFrame(() => hint.classList.add("is-visible"));
+    state = { ...state, phase: "waiting", locked: false };
+  };
+
   const onStageClick = (event) => {
     if (event.target.closest("button, a, [data-no-advance]")) return;
     if (state.phase === "waiting" && !state.locked) next();
@@ -157,10 +316,20 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     document.addEventListener("keydown", onKeyDown);
   }
 
-  function next() {
+  async function next() {
     if (state.locked || state.phase !== "waiting") return;
-    state = { ...state, locked: true, phase: "leaving" };
-    stage.dispatchEvent(new CustomEvent("letter:advance-requested", { detail: { ...state } }));
+    const currentScene = model.scenes[state.sceneIndex];
+    const nextState = advanceState(state, {
+      beatCount: currentScene.beats.length,
+      sceneCount: model.scenes.length,
+    });
+    if (!nextState.locked) return;
+
+    state = nextState;
+    stage.querySelector(".scene")?.classList.add("is-leaving");
+    await delay(520);
+    if (destroyed) return;
+    await enterCurrentBeat();
   }
 
   function reset() {

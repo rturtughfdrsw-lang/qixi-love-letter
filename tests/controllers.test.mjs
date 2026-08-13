@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createMusicController } from "../js/music.js";
-import { createSceneState } from "../js/scenes.js";
+import { advanceState, createSceneState } from "../js/scenes.js";
 
 function createButtonDouble() {
   const attributes = new Map();
@@ -80,4 +80,33 @@ test("scene state starts on the closed envelope", () => {
     phase: "opening",
     locked: false,
   });
+});
+
+test("advance stays in a scene until its final beat", () => {
+  const state = { sceneIndex: 1, beatIndex: 0, phase: "waiting", locked: false };
+  const next = advanceState(state, { beatCount: 3, sceneCount: 10 });
+
+  assert.deepEqual(next, {
+    sceneIndex: 1,
+    beatIndex: 1,
+    phase: "entering",
+    locked: true,
+  });
+});
+
+test("advance moves to the next scene after the final beat", () => {
+  const state = { sceneIndex: 2, beatIndex: 4, phase: "waiting", locked: false };
+  const next = advanceState(state, { beatCount: 5, sceneCount: 10 });
+
+  assert.deepEqual(next, {
+    sceneIndex: 3,
+    beatIndex: 0,
+    phase: "entering",
+    locked: true,
+  });
+});
+
+test("advance ignores input while a transition is locked", () => {
+  const state = { sceneIndex: 2, beatIndex: 1, phase: "entering", locked: true };
+  assert.deepEqual(advanceState(state, { beatCount: 5, sceneCount: 10 }), state);
 });
