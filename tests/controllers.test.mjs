@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createMusicController } from "../js/music.js";
-import { advanceState, createSceneState } from "../js/scenes.js";
+import { rotateStack } from "../js/galleries.js";
+import { advanceState, createSceneState, formatElapsed } from "../js/scenes.js";
 
 function createButtonDouble() {
   const attributes = new Map();
@@ -109,4 +110,16 @@ test("advance moves to the next scene after the final beat", () => {
 test("advance ignores input while a transition is locked", () => {
   const state = { sceneIndex: 2, beatIndex: 1, phase: "entering", locked: true };
   assert.deepEqual(advanceState(state, { beatCount: 5, sceneCount: 10 }), state);
+});
+
+test("photo stack moves only its top item to the bottom", () => {
+  assert.deepEqual(rotateStack(["a", "b", "c"]), ["b", "c", "a"]);
+  assert.deepEqual(rotateStack(["only"]), ["only"]);
+});
+
+test("formats relationship time with stable two-digit clock fields", () => {
+  assert.deepEqual(
+    formatElapsed({ days: 65, hours: 1, minutes: 2, seconds: 3 }),
+    { days: "65", clock: "01 小时 · 02 分钟 · 03 秒" },
+  );
 });

@@ -5,6 +5,9 @@ function element(tag, className, text) {
   return node;
 }
 
+import { calculateElapsed, relationshipStart } from "./content.js";
+import { rotateStack } from "./galleries.js";
+
 export function createSceneState() {
   return { sceneIndex: 0, beatIndex: 0, phase: "opening", locked: false };
 }
@@ -23,11 +26,21 @@ export function advanceState(state, { beatCount, sceneCount }) {
   return { ...state };
 }
 
+export function formatElapsed(value) {
+  const pad = (number) => String(number).padStart(2, "0");
+  return {
+    days: String(value.days),
+    clock: `${pad(value.hours)} 小时 · ${pad(value.minutes)} 分钟 · ${pad(value.seconds)} 秒`,
+  };
+}
+
 export function createScenePlayer({ stage, model, music, galleries, reducedMotion = false }) {
   let state = createSceneState();
   let destroyed = false;
   const timeouts = new Set();
   const cleanups = new Set();
+  const initialBookOrder = model.scenes.find(({ id }) => id === "handmade")?.beats[0]?.media ?? [];
+  let bookOrder = [...initialBookOrder];
   const sceneLabels = {
     letter: "LETTER · 02",
     gifts: "MEMORIES · GIFTS",
@@ -54,6 +67,11 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     timeouts.clear();
     for (const cleanup of cleanups) cleanup();
     cleanups.clear();
+  };
+
+  const registerCleanup = (cleanup) => {
+    cleanups.add(cleanup);
+    return cleanup;
   };
 
   const createBalloons = () => {
@@ -276,9 +294,172 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     return { scene, hint };
   };
 
+  const bookTransforms = [
+    { x: 0, y: -8, rotate: -1, scale: 1 },
+    { x: 24, y: 8, rotate: 5.5, scale: 0.975 },
+    { x: -25, y: 13, rotate: -6.5, scale: 0.95 },
+    { x: 34, y: 18, rotate: 8, scale: 0.925 },
+    { x: -36, y: 24, rotate: -9, scale: 0.9 },
+    { x: 20, y: 29, rotate: 4, scale: 0.875 },
+    { x: -16, y: 34, rotate: -4, scale: 0.85 },
+  ];
+
+  const positionBookCards = (stack) => {
+    const cards = [...stack.querySelectorAll(".book-card")];
+    cards.forEach((card, index) => {
+      const transform = bookTransforms[index] ?? bookTransforms.at(-1);
+      card.style.zIndex = String(cards.length - index);
+      card.style.setProperty("--book-x", `${transform.x}px`);
+      card.style.setProperty("--book-y", `${transform.y}px`);
+      card.style.setProperty("--book-rotate", `${transform.rotate}deg`);
+      card.style.setProperty("--book-scale", transform.scale);
+      card.dataset.top = String(index === 0);
+    });
+  };
+
+  const renderHandmadeScene = (sceneModel, beat, beatIndex) => {
+    stage.replaceChildren();
+    stage.className = "app-stage app-stage--handmade";
+    const scene = element("section", "scene scene--handmade is-entering");
+    scene.dataset.scene = "handmade";
+    const inner = element("div", "scene__inner handmade-layout");
+    const header = element("header", "scene-heading");
+    header.append(
+      element("span", "scene-heading__label", sceneLabels.handmade),
+      element("span", "scene-heading__progress", `${String(beatIndex + 1).padStart(2, "0")} / ${String(sceneModel.beats.length).padStart(2, "0")}`),
+    );
+    const copy = createParagraphs(beat.paragraphs);
+    const stack = element("button", "book-stack");
+    stack.type = "button";
+    stack.dataset.noAdvance = "true";
+    stack.setAttribute("aria-label", "翻看手工书照片，点击把最上面的照片放到底层");
+
+    const renderCards = () => {
+      stack.replaceChildren();
+      bookOrder.forEach((item, index) => {
+        const card = element("span", "book-card");
+        card.dataset.src = item.src;
+        const image = element("img");
+        image.src = item.src;
+        image.alt = item.alt;
+        image.loading = index < 2 ? "eager" : "lazy";
+        image.decoding = "async";
+        card.append(image);
+        stack.append(card);
+      });
+      positionBookCards(stack);
+    };
+
+    const onFlip = async (event) => {
+      event.stopPropagation();
+      if (stack.dataset.animating === "true") return;
+      const top = stack.querySelector('.book-card[data-top="true"]');
+      if (!top) return;
+      stack.dataset.animating = "true";
+      top.classList.add("is-flipping");
+      await delay(430);
+      bookOrder = rotateStack(bookOrder);
+      renderCards();
+      stack.dataset.animating = "false";
+    };
+    stack.addEventListener("click", onFlip);
+    registerCleanup(() => stack.removeEventListener("click", onFlip));
+    renderCards();
+
+    const hint = element("button", "continue-hint");
+    hint.type = "button";
+    hint.hidden = true;
+    hint.textContent = "♡ 继续读下去";
+    hint.addEventListener("click", (event) => {
+      event.stopPropagation();
+      next();
+    });
+    inner.append(header, copy, stack, element("p", "book-stack__tip", "轻触最上面的照片，慢慢翻看 ♡"), hint);
+    scene.append(inner);
+    stage.append(scene);
+    requestAnimationFrame(() => scene.classList.add("is-visible"));
+    return { scene, hint };
+  };
+
+  const renderFutureScene = (sceneModel, beat, beatIndex) => {
+    const result = renderGenericScene(sceneModel, beat, beatIndex);
+    const inner = result.scene.querySelector(".scene__inner");
+    const checklist = element("div", "future-checks");
+    checklist.setAttribute("aria-hidden", "true");
+    for (let index = 0; index < 3; index += 1) {
+      const item = element("span", "future-check");
+      item.style.setProperty("--check-index", index);
+      item.append(element("i", "future-check__circle"), element("b", "future-check__mark", "✓"));
+      checklist.append(item);
+    }
+    inner.append(checklist);
+    if (beat.media.length) {
+      const gif = element("img", "future-gif");
+      gif.src = beat.media[0].src;
+      gif.alt = beat.media[0].alt;
+      gif.loading = "lazy";
+      gif.decoding = "async";
+      inner.append(gif);
+    }
+    return result;
+  };
+
+  const renderChangeScene = (sceneModel, beat, beatIndex) => {
+    const result = renderGenericScene(sceneModel, beat, beatIndex);
+    result.scene.classList.add("scene--change-quiet");
+    result.scene.querySelectorAll(".animated-line").forEach((line) => {
+      if (line.textContent === "“没事。”" || line.textContent.includes("那句“没事”")) line.classList.add("line--never-mind");
+      if (line.textContent.includes("我想变成一个更会表达爱的人。")) line.classList.add("line--love-expression");
+    });
+    return result;
+  };
+
+  const renderCounterScene = (sceneModel, beat, beatIndex) => {
+    const result = renderGenericScene(sceneModel, beat, beatIndex);
+    if (beat.kind !== "counter-display") return result;
+
+    const copy = result.scene.querySelector(".letter-copy");
+    const counter = element("div", "relationship-counter");
+    counter.setAttribute("role", "timer");
+    counter.setAttribute("aria-live", "off");
+    const days = element("strong", "relationship-counter__days");
+    const daysLabel = element("span", "relationship-counter__days-label", "天");
+    const clock = element("p", "relationship-counter__clock");
+    counter.append(
+      element("span", "relationship-counter__eyebrow", "我们已经在一起"),
+      element("div", "relationship-counter__day-row"),
+      clock,
+    );
+    counter.querySelector(".relationship-counter__day-row").append(days, daysLabel);
+    copy.after(counter);
+
+    let previous = "";
+    const update = () => {
+      const formatted = formatElapsed(calculateElapsed(relationshipStart));
+      const next = `${formatted.days}|${formatted.clock}`;
+      days.textContent = formatted.days;
+      clock.textContent = formatted.clock;
+      if (previous && previous !== next) counter.classList.remove("is-ticking");
+      requestAnimationFrame(() => counter.classList.add("is-ticking"));
+      previous = next;
+      const wait = 1000 - (Date.now() % 1000) + 5;
+      const timeout = setTimeout(() => {
+        timeouts.delete(timeout);
+        update();
+      }, wait);
+      timeouts.add(timeout);
+    };
+    update();
+    return result;
+  };
+
   const renderCurrentBeat = () => {
     const sceneModel = model.scenes[state.sceneIndex];
     const beat = sceneModel.beats[state.beatIndex];
+    if (sceneModel.id === "handmade") return renderHandmadeScene(sceneModel, beat, state.beatIndex);
+    if (sceneModel.id === "future") return renderFutureScene(sceneModel, beat, state.beatIndex);
+    if (sceneModel.id === "change") return renderChangeScene(sceneModel, beat, state.beatIndex);
+    if (sceneModel.id === "counter") return renderCounterScene(sceneModel, beat, state.beatIndex);
     if (sceneModel.id === "letter" || sceneModel.id === "gifts") {
       return renderMemoryScene(sceneModel, beat, state.beatIndex);
     }
@@ -335,6 +516,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   function reset() {
     clearPending();
     galleries?.reset?.();
+    bookOrder = [...initialBookOrder];
     state = createSceneState();
     renderOpening();
   }

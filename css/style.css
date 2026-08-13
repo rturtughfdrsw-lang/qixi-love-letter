@@ -867,6 +867,286 @@ img {
   }
 }
 
+.scene--handmade {
+  opacity: 0;
+  transform: translateY(1rem);
+  transition: opacity 0.75s var(--ease-soft), transform 0.8s var(--ease-soft), filter 0.6s ease;
+}
+
+.scene--handmade.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.scene--handmade.is-leaving {
+  opacity: 0;
+  filter: blur(7px);
+  transform: translateY(-1rem);
+}
+
+.handmade-layout {
+  display: grid;
+  grid-template-rows: auto auto minmax(18rem, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  padding: clamp(1rem, 4vh, 2.5rem) 0 clamp(4.8rem, 9vh, 6rem);
+}
+
+.handmade-layout .letter-copy {
+  max-height: min(35svh, 20rem);
+  overflow: hidden auto;
+  scrollbar-width: thin;
+}
+
+.book-stack {
+  position: relative;
+  z-index: 7;
+  width: min(78vw, 21rem);
+  height: min(44svh, 30rem);
+  min-height: 18rem;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  perspective: 1000px;
+}
+
+.book-card {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 72%;
+  height: 89%;
+  margin: auto;
+  padding: 0.45rem 0.45rem 1.55rem;
+  border-radius: 0.35rem;
+  background: #fff;
+  box-shadow: 0 14px 28px rgba(84, 49, 58, 0.12), 0 32px 68px rgba(84, 49, 58, 0.16);
+  transform: translate(var(--book-x), var(--book-y)) rotate(var(--book-rotate)) scale(var(--book-scale));
+  transform-origin: 50% 82%;
+  transition: transform 0.62s var(--ease-out), box-shadow 0.62s ease;
+}
+
+.book-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-card[data-top="true"] {
+  box-shadow: 0 20px 40px rgba(84, 49, 58, 0.18), 0 45px 80px rgba(84, 49, 58, 0.2);
+}
+
+.book-card.is-flipping {
+  transform: translate(130%, -8%) rotate(16deg) scale(0.94);
+  opacity: 0;
+  transition: transform 0.43s var(--ease-out), opacity 0.35s ease;
+}
+
+.book-stack__tip {
+  position: relative;
+  z-index: 8;
+  margin: -0.2rem auto 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.future-checks {
+  position: absolute;
+  z-index: 3;
+  right: 8%;
+  bottom: 15%;
+  display: flex;
+  gap: 1rem;
+}
+
+.future-check {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  aspect-ratio: 1;
+  color: var(--deep-rose);
+  opacity: 0;
+  animation: check-appear 0.65s calc(0.6s + var(--check-index) * 0.35s) var(--ease-out) forwards;
+}
+
+.future-check__circle {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--rose);
+  border-radius: 50%;
+}
+
+.future-check__mark {
+  font-family: sans-serif;
+  font-size: 1.2rem;
+  opacity: 0;
+  animation: check-mark 0.5s calc(1s + var(--check-index) * 0.35s) var(--ease-out) forwards;
+}
+
+.future-gif {
+  position: absolute;
+  z-index: 2;
+  top: 13%;
+  left: 5%;
+  width: clamp(6rem, 23vw, 10rem);
+  aspect-ratio: 1;
+  border-radius: 1.4rem;
+  object-fit: cover;
+  box-shadow: var(--shadow-soft);
+  opacity: 0.78;
+}
+
+.scene--change-quiet {
+  background: linear-gradient(155deg, #fffdfa, #f9eeeb);
+}
+
+.scene--change-quiet .letter-copy {
+  box-shadow: 0 16px 48px rgba(91, 51, 62, 0.08);
+}
+
+.line--never-mind {
+  position: relative;
+  display: inline-block;
+  width: fit-content;
+  color: var(--deep-rose);
+  font-size: clamp(1.35rem, 7vw, 2.2rem) !important;
+  isolation: isolate;
+  animation: never-mind-fade 3.7s 1.1s ease forwards;
+}
+
+.line--never-mind::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: 54%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: var(--deep-rose);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: strike-through 0.85s 1.75s var(--ease-out) forwards;
+}
+
+.line--love-expression {
+  position: relative;
+  color: var(--deep-rose);
+  font-size: clamp(1.28rem, 5.8vw, 2rem) !important;
+  line-height: 1.75 !important;
+}
+
+.line--love-expression::after {
+  content: "";
+  display: block;
+  width: 4rem;
+  height: 1px;
+  margin-top: 0.7rem;
+  background: var(--rose);
+}
+
+.relationship-counter {
+  position: relative;
+  z-index: 8;
+  width: min(100%, 33rem);
+  margin: 1.2rem auto 0;
+  padding: clamp(1.2rem, 5vw, 2rem);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 1.8rem;
+  background: rgba(255, 251, 247, 0.9);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+  backdrop-filter: blur(12px);
+}
+
+.relationship-counter__eyebrow {
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+}
+
+.relationship-counter__day-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+
+.relationship-counter__days {
+  color: var(--deep-rose);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(3.4rem, 17vw, 6.8rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.relationship-counter__days-label {
+  color: var(--deep-rose);
+  font-size: clamp(1.1rem, 4vw, 1.5rem);
+}
+
+.relationship-counter__clock {
+  margin: 0.9rem 0 0;
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: clamp(0.78rem, 3.25vw, 1rem);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.relationship-counter.is-ticking .relationship-counter__clock {
+  animation: counter-tick 0.36s var(--ease-out);
+}
+
+@keyframes check-appear {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes check-mark {
+  from { opacity: 0; transform: scale(0.5) rotate(-12deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+@keyframes strike-through {
+  to { transform: scaleX(1); }
+}
+
+@keyframes never-mind-fade {
+  0%, 58% { opacity: 1; filter: none; }
+  100% { opacity: 0.28; filter: blur(1.5px); }
+}
+
+@keyframes counter-tick {
+  0% { transform: translateY(4px); opacity: 0.45; }
+  100% { transform: none; opacity: 1; }
+}
+
+@media (min-width: 820px) {
+  .handmade-layout {
+    grid-template-columns: minmax(0, 0.94fr) minmax(22rem, 1.06fr);
+    grid-template-rows: auto 1fr auto;
+    column-gap: clamp(2rem, 6vw, 6rem);
+  }
+
+  .handmade-layout .scene-heading { grid-column: 1 / -1; }
+  .handmade-layout .letter-copy { grid-column: 1; grid-row: 2; max-height: 65svh; }
+  .book-stack { grid-column: 2; grid-row: 2; width: min(35vw, 24rem); height: min(66svh, 38rem); }
+  .book-stack__tip { grid-column: 2; grid-row: 3; }
+}
+
+@media (max-width: 360px) {
+  .relationship-counter__clock {
+    font-size: 0.7rem;
+    letter-spacing: 0;
+  }
+}
+
 @media (min-width: 760px) {
   .app-stage,
   .scene {
