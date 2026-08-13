@@ -7,6 +7,7 @@ function element(tag, className, text) {
 
 import { calculateElapsed, relationshipStart } from "./content.js";
 import { rotateStack } from "./galleries.js";
+import { createTypewriter } from "./typewriter.js";
 
 export function createSceneState() {
   return { sceneIndex: 0, beatIndex: 0, phase: "opening", locked: false };
@@ -80,6 +81,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   const cleanups = new Set();
   const initialBookOrder = model.scenes.find(({ id }) => id === "handmade")?.beats[0]?.media ?? [];
   let bookOrder = [...initialBookOrder];
+  const typewriter = createTypewriter({ reducedMotion, delayFor: typewriterDelay });
   const sceneLabels = {
     letter: "LETTER · 02",
     gifts: "MEMORIES · GIFTS",
@@ -102,6 +104,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   });
 
   const clearPending = () => {
+    typewriter.cancel();
     for (const timeout of timeouts) clearTimeout(timeout);
     timeouts.clear();
     for (const cleanup of cleanups) cleanup();
@@ -222,7 +225,8 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   const createParagraphs = (paragraphs) => {
     const copy = element("div", "letter-copy memory-copy");
     paragraphs.forEach((paragraph, index) => {
-      const line = element("p", "animated-line", paragraph);
+      const line = element("p", "animated-line");
+      line.setAttribute("aria-label", paragraph);
       line.style.setProperty("--line-index", index);
       copy.append(line);
     });
@@ -635,8 +639,16 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
 
   const enterCurrentBeat = async () => {
     const { hint } = renderCurrentBeat();
-    const paragraphCount = model.scenes[state.sceneIndex].beats[state.beatIndex].paragraphs.length;
-    await delay(Math.min(1900, 620 + paragraphCount * 210));
+    const paragraphs = model.scenes[state.sceneIndex].beats[state.beatIndex].paragraphs;
+    const copy = stage.querySelector(".letter-copy");
+    const lines = copy ? [...copy.querySelectorAll(".animated-line")] : [];
+    if (copy && lines.length) {
+      copy.classList.add("is-typing");
+      await typewriter.play(lines, paragraphs);
+      copy.classList.remove("is-typing");
+    } else {
+      await delay(420);
+    }
     if (destroyed) return;
     if (hint) {
       hint.hidden = false;
@@ -647,12 +659,18 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
 
   const onStageClick = (event) => {
     if (event.target.closest("button, a, [data-no-advance]")) return;
+    if (typewriter.complete()) return;
     if (state.phase === "waiting" && !state.locked) next();
   };
 
   const onKeyDown = (event) => {
     const interactive = Boolean(event.target?.closest?.("button, a, input, select, textarea, [contenteditable], [data-no-advance]"));
     const galleryOpen = Boolean(galleries?.isOpen?.());
+    if (shouldHandleSceneShortcut({ key: event.key, interactive, galleryOpen }) && typewriter.isRunning()) {
+      event.preventDefault();
+      typewriter.complete();
+      return;
+    }
     if (shouldHandleSceneShortcut({ key: event.key, interactive, galleryOpen }) && state.phase === "waiting" && !state.locked) {
       event.preventDefault();
       next();

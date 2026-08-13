@@ -691,10 +691,22 @@ img {
 }
 
 .animated-line {
-  opacity: 0;
-  transform: translateY(0.9rem);
-  filter: blur(4px);
-  animation: line-reveal 0.8s calc(0.28s + var(--line-index) * 0.18s) var(--ease-soft) forwards;
+  min-height: 1.65em;
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+.letter-copy.is-typing .animated-line:last-child::after {
+  content: "";
+  display: inline-block;
+  width: 0.08em;
+  height: 1em;
+  margin-left: 0.12em;
+  border-radius: 999px;
+  background: currentColor;
+  vertical-align: -0.08em;
+  animation: typewriter-caret 0.8s steps(1, end) infinite;
 }
 
 .memory-media {
@@ -811,6 +823,10 @@ img {
 
 @keyframes line-reveal {
   to { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes typewriter-caret {
+  50% { opacity: 0; }
 }
 
 @keyframes memory-photo-in {
