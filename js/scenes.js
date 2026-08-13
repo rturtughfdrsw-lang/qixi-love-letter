@@ -161,6 +161,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
       state = { ...state, locked: true, phase: "entering" };
       envelope.disabled = true;
       void music.play();
+      stage.classList.add("is-letter-open");
       scene.classList.add("is-open");
       await delay(520);
       greeting.setAttribute("aria-hidden", "false");
