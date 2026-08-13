@@ -271,6 +271,13 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     return copy;
   };
 
+  const clearStageSelection = () => {
+    const selection = window.getSelection?.();
+    if (selection && (!selection.anchorNode || stage.contains(selection.anchorNode))) {
+      selection.removeAllRanges();
+    }
+  };
+
   const createSceneNavigation = (continueLabel = "♡ 轻触继续") => {
     const navigation = element("div", "scene-navigation");
     navigation.dataset.noAdvance = "true";
@@ -907,6 +914,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
 
   async function next() {
     if (state.locked || state.phase !== "waiting") return;
+    clearStageSelection();
     const currentScene = model.scenes[state.sceneIndex];
     const nextState = advanceState(state, {
       beatCount: currentScene.beats.length,
@@ -927,6 +935,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
 
   async function previous() {
     if (state.locked || state.phase !== "waiting") return;
+    clearStageSelection();
     typewriter.cancel();
     const previousBeatCount = state.sceneIndex > 0
       ? model.scenes[state.sceneIndex - 1].beats.length

@@ -74,3 +74,14 @@ test("previous navigation updates the current scene in place", () => {
   assert.doesNotMatch(previousBody, /mediaStage\.append/);
   assert.doesNotMatch(previousBody, /photoLayer\.append/);
 });
+
+test("playback navigation clears selection and the stage cannot turn text blue", () => {
+  assert.match(styles, /\.app-stage\s*\{[\s\S]*?-webkit-user-select:\s*none;[\s\S]*?user-select:\s*none;/);
+  assert.match(source, /const clearStageSelection\s*=/);
+
+  const nextStart = source.indexOf("async function next()");
+  const previousStart = source.indexOf("async function previous()");
+  const resetStart = source.indexOf("function reset()", previousStart);
+  assert.match(source.slice(nextStart, previousStart), /clearStageSelection\(\)/);
+  assert.match(source.slice(previousStart, resetStart), /clearStageSelection\(\)/);
+});

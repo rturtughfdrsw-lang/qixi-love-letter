@@ -125,6 +125,8 @@ img {
   min-height: 100svh;
   padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
   overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .loading-letter {
