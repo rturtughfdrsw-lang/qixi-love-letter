@@ -27,3 +27,12 @@ test("index exposes the required application landmarks", async () => {
     assert.ok(html.includes(marker), marker);
   }
 });
+
+test("text-only scenes declare a full-screen single-column layout", async () => {
+  const scenes = await readFile(new URL("../js/scenes.js", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../css/style.css", import.meta.url), "utf8");
+
+  assert.match(scenes, /scene--text-only/);
+  assert.match(scenes, /memory-layout--text-only/);
+  assert.match(styles, /\.memory-layout--text-only/);
+});

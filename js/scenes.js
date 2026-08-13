@@ -80,7 +80,8 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   const timeouts = new Set();
   const cleanups = new Set();
   const initialBookOrder = model.scenes.find(({ id }) => id === "handmade")?.beats[0]?.media ?? [];
-  let bookOrder = [...initialBookOrder];
+  const reorderedInitialBookOrder = reorderHandmadePhotos(initialBookOrder);
+  let bookOrder = [...reorderedInitialBookOrder];
   const typewriter = createTypewriter({ reducedMotion, delayFor: typewriterDelay });
   const sceneLabels = {
     letter: "LETTER · 02",
@@ -235,6 +236,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
 
   const createPhotoCard = (item, index, isCurrent) => {
     const figure = element("figure", `photo-card memory-photo ${isCurrent ? "is-current" : "is-memory"}`);
+    figure.dataset.src = item.src;
     figure.style.setProperty("--photo-index", index);
     const image = element("img");
     image.src = item.src;
@@ -312,12 +314,55 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     return { scene, hint };
   };
 
+  const updateMemoryScene = (sceneModel, beat, beatIndex) => {
+    const scene = stage.querySelector(`.scene--${sceneModel.id}`);
+    if (!scene) return renderMemoryScene(sceneModel, beat, beatIndex);
+    scene.dataset.beat = String(beatIndex);
+    scene.querySelector(".scene-heading__progress").textContent = `${String(beatIndex + 1).padStart(2, "0")} / ${String(sceneModel.beats.length).padStart(2, "0")}`;
+
+    const oldCopy = scene.querySelector(".letter-copy");
+    const copy = createParagraphs(beat.paragraphs);
+    oldCopy.replaceWith(copy);
+
+    const mediaStage = scene.querySelector(".memory-media");
+    const limit = sceneModel.id === "gifts" ? 4 : 3;
+    const desiredMedia = mediaThroughBeat(sceneModel, beatIndex, limit);
+    const desiredPaths = desiredMedia.map(({ src }) => src);
+    const currentPaths = [...mediaStage.children].map(({ dataset }) => dataset.src);
+    const changes = reconcileMediaPaths(currentPaths, desiredPaths, limit);
+
+    for (const card of [...mediaStage.children]) {
+      if (changes.removed.includes(card.dataset.src)) card.remove();
+    }
+    desiredMedia.forEach((item, index) => {
+      let card = [...mediaStage.children].find(({ dataset }) => dataset.src === item.src);
+      const isCurrent = index === desiredMedia.length - 1 || beat.media.some(({ src }) => src === item.src);
+      if (!card) {
+        card = createPhotoCard(item, index, isCurrent);
+        card.classList.add("is-new-photo");
+      } else {
+        card.classList.toggle("is-current", isCurrent);
+        card.classList.toggle("is-memory", !isCurrent);
+        card.style.setProperty("--photo-index", index);
+      }
+      mediaStage.append(card);
+    });
+
+    const counter = scene.querySelector(".gift-counter__current");
+    if (counter) counter.textContent = beatIndex ? String(Math.min(10, beatIndex)).padStart(2, "0") : "♡";
+
+    const hint = scene.querySelector(".continue-hint");
+    hint.classList.remove("is-visible");
+    hint.hidden = true;
+    return { scene, hint };
+  };
+
   const renderGenericScene = (sceneModel, beat, beatIndex) => {
     stage.replaceChildren();
     stage.className = `app-stage app-stage--${sceneModel.id}`;
-    const scene = element("section", `scene scene--memory scene--${sceneModel.id} is-entering`);
+    const scene = element("section", `scene scene--memory scene--text-only scene--${sceneModel.id} is-entering`);
     scene.dataset.scene = sceneModel.id;
-    const inner = element("div", "scene__inner memory-layout memory-layout--quiet");
+    const inner = element("div", "scene__inner memory-layout memory-layout--quiet memory-layout--text-only");
     const header = element("header", "scene-heading");
     header.append(
       element("span", "scene-heading__label", sceneLabels[sceneModel.id] ?? "LETTER"),
@@ -425,6 +470,17 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     return { scene, hint };
   };
 
+  const updateHandmadeScene = (sceneModel, beat, beatIndex) => {
+    const scene = stage.querySelector(".scene--handmade");
+    if (!scene) return renderHandmadeScene(sceneModel, beat, beatIndex);
+    scene.querySelector(".scene-heading__progress").textContent = `${String(beatIndex + 1).padStart(2, "0")} / ${String(sceneModel.beats.length).padStart(2, "0")}`;
+    scene.querySelector(".letter-copy").replaceWith(createParagraphs(beat.paragraphs));
+    const hint = scene.querySelector(".continue-hint");
+    hint.classList.remove("is-visible");
+    hint.hidden = true;
+    return { scene, hint };
+  };
+
   const renderFutureScene = (sceneModel, beat, beatIndex) => {
     const result = renderGenericScene(sceneModel, beat, beatIndex);
     const inner = result.scene.querySelector(".scene__inner");
@@ -452,8 +508,9 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     const result = renderGenericScene(sceneModel, beat, beatIndex);
     result.scene.classList.add("scene--change-quiet");
     result.scene.querySelectorAll(".animated-line").forEach((line) => {
-      if (line.textContent === "“没事。”" || line.textContent.includes("那句“没事”")) line.classList.add("line--never-mind");
-      if (line.textContent.includes("我想变成一个更会表达爱的人。")) line.classList.add("line--love-expression");
+      const paragraph = line.getAttribute("aria-label") ?? "";
+      if (paragraph === "“没事。”" || paragraph.includes("那句“没事”")) line.classList.add("line--never-mind");
+      if (paragraph.includes("我想变成一个更会表达爱的人。")) line.classList.add("line--love-expression");
     });
     return result;
   };
@@ -627,11 +684,19 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     if (sceneModel.id === "menu") return renderMenuScene(sceneModel);
     if (sceneModel.id === "love") return renderLoveScene(sceneModel, beat, state.beatIndex);
     if (sceneModel.id === "last") return renderLastScene(sceneModel, beat, state.beatIndex);
-    if (sceneModel.id === "handmade") return renderHandmadeScene(sceneModel, beat, state.beatIndex);
+    if (sceneModel.id === "handmade") {
+      if (stage.querySelector(".scene--handmade")) {
+        return updateHandmadeScene(sceneModel, beat, state.beatIndex);
+      }
+      return renderHandmadeScene(sceneModel, beat, state.beatIndex);
+    }
     if (sceneModel.id === "future") return renderFutureScene(sceneModel, beat, state.beatIndex);
     if (sceneModel.id === "change") return renderChangeScene(sceneModel, beat, state.beatIndex);
     if (sceneModel.id === "counter") return renderCounterScene(sceneModel, beat, state.beatIndex);
     if (sceneModel.id === "letter" || sceneModel.id === "gifts") {
+      if (stage.querySelector(`.scene--${sceneModel.id}`)) {
+        return updateMemoryScene(sceneModel, beat, state.beatIndex);
+      }
       return renderMemoryScene(sceneModel, beat, state.beatIndex);
     }
     return renderGenericScene(sceneModel, beat, state.beatIndex);
@@ -695,18 +760,21 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     });
     if (!nextState.locked) return;
 
+    const staysInScene = nextState.sceneIndex === state.sceneIndex;
     state = nextState;
-    stage.querySelector(".scene")?.classList.add("is-leaving");
-    await delay(520);
-    if (destroyed) return;
-    clearPending();
+    if (!staysInScene) {
+      stage.querySelector(".scene")?.classList.add("is-leaving");
+      await delay(520);
+      if (destroyed) return;
+      clearPending();
+    }
     await enterCurrentBeat();
   }
 
   function reset() {
     clearPending();
     galleries?.reset?.();
-    bookOrder = [...initialBookOrder];
+    bookOrder = [...reorderedInitialBookOrder];
     state = resetSceneState();
     renderOpening();
   }
