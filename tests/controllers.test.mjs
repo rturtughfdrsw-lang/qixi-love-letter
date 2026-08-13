@@ -154,6 +154,12 @@ test("retreat ignores locked state and cannot move before the first scene", () =
   assert.deepEqual(retreatState(first, { previousBeatCount: 0 }), first);
 });
 
+test("retreat never moves backward inside the opening scene", () => {
+  const opened = { sceneIndex: 0, beatIndex: 1, phase: "waiting", locked: false };
+
+  assert.deepEqual(retreatState(opened, { previousBeatCount: 0 }), opened);
+});
+
 test("photo stack moves only its top item to the bottom", () => {
   assert.deepEqual(rotateStack(["a", "b", "c"]), ["b", "c", "a"]);
   assert.deepEqual(rotateStack(["only"]), ["only"]);

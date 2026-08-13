@@ -33,6 +33,7 @@ export function advanceState(state, { beatCount, sceneCount }) {
 
 export function retreatState(state, { previousBeatCount = 0 }) {
   if (state.locked || state.phase !== "waiting") return { ...state };
+  if (state.sceneIndex === 0) return { ...state };
 
   if (state.beatIndex > 0) {
     return { ...state, beatIndex: state.beatIndex - 1, phase: "entering", locked: true };
@@ -104,6 +105,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   const typewriter = createTypewriter({ reducedMotion, delayFor: typewriterDelay });
   let relationshipCounterTimeout = null;
   let activeRelationshipCounter = null;
+  let beatEntryGeneration = 0;
   const stopRelationshipCounter = () => {
     if (relationshipCounterTimeout !== null) {
       clearTimeout(relationshipCounterTimeout);
@@ -135,6 +137,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   });
 
   const clearPending = () => {
+    beatEntryGeneration += 1;
     typewriter.cancel();
     stopRelationshipCounter();
     for (const timeout of timeouts) clearTimeout(timeout);
@@ -190,11 +193,11 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     return field;
   };
 
-  const renderOpening = () => {
+  const renderOpening = ({ opened = false } = {}) => {
     stage.replaceChildren();
-    stage.className = "app-stage app-stage--opening";
+    stage.className = opened ? "app-stage app-stage--opening is-letter-open" : "app-stage app-stage--opening";
 
-    const scene = element("section", "scene scene--opening");
+    const scene = element("section", opened ? "scene scene--opening is-open" : "scene scene--opening");
     scene.dataset.scene = "opening";
     const veil = element("div", "opening-veil");
     veil.setAttribute("aria-hidden", "true");
@@ -220,6 +223,14 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
       element("span", "opening-greeting__small", "LETTER · 01"),
       element("p", "opening-greeting__copy", model.greeting),
     );
+
+    if (opened) {
+      envelope.disabled = true;
+      greeting.setAttribute("aria-hidden", "false");
+      greeting.classList.add("is-visible");
+      instruction.textContent = "♡ 轻触继续";
+      instruction.classList.add("is-ready");
+    }
 
     const onOpen = async (event) => {
       event.stopPropagation();
@@ -252,6 +263,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     );
     scene.append(veil, inner);
     stage.append(scene);
+    return { scene, hint: null, previousHint: null };
   };
 
   const updateCopyContents = (copy, paragraphs) => {
@@ -828,6 +840,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     const sceneModel = model.scenes[state.sceneIndex];
     const beat = sceneModel.beats[state.beatIndex];
     const sameScene = stage.querySelector(".scene")?.dataset.scene === sceneModel.id;
+    if (sceneModel.id === "opening") return renderOpening({ opened: true });
     if (sceneModel.id === "menu") return renderMenuScene(sceneModel);
     if (sceneModel.id === "love") return sameScene
       ? updateLoveScene(sceneModel, beat, state.beatIndex)
@@ -860,25 +873,27 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   };
 
   const enterCurrentBeat = async () => {
+    const entryGeneration = ++beatEntryGeneration;
     const { hint, previousHint } = renderCurrentBeat();
     const paragraphs = model.scenes[state.sceneIndex].beats[state.beatIndex].paragraphs;
     const copy = stage.querySelector(".letter-copy");
     const lines = copy ? [...copy.querySelectorAll(".animated-line")] : [];
+    if (previousHint && state.sceneIndex > 0) {
+      previousHint.hidden = false;
+      requestAnimationFrame(() => previousHint.classList.add("is-visible"));
+    }
     if (copy && lines.length) {
       copy.classList.add("is-typing");
       await typewriter.play(lines, paragraphs);
+      if (destroyed || entryGeneration !== beatEntryGeneration) return;
       copy.classList.remove("is-typing");
     } else {
       await delay(420);
     }
-    if (destroyed) return;
+    if (destroyed || entryGeneration !== beatEntryGeneration) return;
     if (hint) {
       hint.hidden = false;
       requestAnimationFrame(() => hint.classList.add("is-visible"));
-    }
-    if (previousHint && (state.sceneIndex > 0 || state.beatIndex > 0)) {
-      previousHint.hidden = false;
-      requestAnimationFrame(() => previousHint.classList.add("is-visible"));
     }
     state = { ...state, phase: "waiting", locked: false };
   };
@@ -934,8 +949,13 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   }
 
   async function previous() {
-    if (state.locked || state.phase !== "waiting") return;
+    const interruptsTyping = state.locked && state.phase === "entering" && typewriter.isRunning();
+    if (!interruptsTyping && (state.locked || state.phase !== "waiting")) return;
     clearStageSelection();
+    if (interruptsTyping) {
+      beatEntryGeneration += 1;
+      state = { ...state, phase: "waiting", locked: false };
+    }
     typewriter.cancel();
     const previousBeatCount = state.sceneIndex > 0
       ? model.scenes[state.sceneIndex - 1].beats.length
