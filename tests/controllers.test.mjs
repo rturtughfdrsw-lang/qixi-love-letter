@@ -9,6 +9,7 @@ import {
   reconcileMediaPaths,
   reorderHandmadePhotos,
   resetSceneState,
+  retreatState,
   selectLoveWindow,
   selectMemoryBatch,
   shouldHandleSceneShortcut,
@@ -121,6 +122,36 @@ test("advance moves to the next scene after the final beat", () => {
 test("advance ignores input while a transition is locked", () => {
   const state = { sceneIndex: 2, beatIndex: 1, phase: "entering", locked: true };
   assert.deepEqual(advanceState(state, { beatCount: 5, sceneCount: 10 }), state);
+});
+
+test("retreat stays in the current scene when an earlier beat exists", () => {
+  const state = { sceneIndex: 3, beatIndex: 2, phase: "waiting", locked: false };
+
+  assert.deepEqual(retreatState(state, { previousBeatCount: 4 }), {
+    sceneIndex: 3,
+    beatIndex: 1,
+    phase: "entering",
+    locked: true,
+  });
+});
+
+test("retreat enters the previous scene at its final beat", () => {
+  const state = { sceneIndex: 3, beatIndex: 0, phase: "waiting", locked: false };
+
+  assert.deepEqual(retreatState(state, { previousBeatCount: 5 }), {
+    sceneIndex: 2,
+    beatIndex: 4,
+    phase: "entering",
+    locked: true,
+  });
+});
+
+test("retreat ignores locked state and cannot move before the first scene", () => {
+  const locked = { sceneIndex: 2, beatIndex: 1, phase: "entering", locked: true };
+  const first = { sceneIndex: 0, beatIndex: 0, phase: "waiting", locked: false };
+
+  assert.deepEqual(retreatState(locked, { previousBeatCount: 3 }), locked);
+  assert.deepEqual(retreatState(first, { previousBeatCount: 0 }), first);
 });
 
 test("photo stack moves only its top item to the bottom", () => {

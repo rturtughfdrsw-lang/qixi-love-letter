@@ -31,6 +31,26 @@ export function advanceState(state, { beatCount, sceneCount }) {
   return { ...state };
 }
 
+export function retreatState(state, { previousBeatCount = 0 }) {
+  if (state.locked || state.phase !== "waiting") return { ...state };
+
+  if (state.beatIndex > 0) {
+    return { ...state, beatIndex: state.beatIndex - 1, phase: "entering", locked: true };
+  }
+
+  if (state.sceneIndex > 0 && previousBeatCount > 0) {
+    return {
+      ...state,
+      sceneIndex: state.sceneIndex - 1,
+      beatIndex: previousBeatCount - 1,
+      phase: "entering",
+      locked: true,
+    };
+  }
+
+  return { ...state };
+}
+
 export function formatElapsed(value) {
   const pad = (number) => String(number).padStart(2, "0");
   return {
