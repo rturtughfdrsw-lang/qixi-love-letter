@@ -48,6 +48,27 @@ export function selectLoveWindow(paths, beatIndex, batchSize = 3, limit = 10) {
   return paths.slice(start, end);
 }
 
+export function reorderHandmadePhotos(items) {
+  if (items.length < 6) return [...items];
+  return [items[5], ...items.slice(0, 5), ...items.slice(6)];
+}
+
+export function typewriterDelay(character, totalCharacters) {
+  const base = Math.max(38, 82 - Math.max(0, totalCharacters - 80) * 0.3);
+  return /[。！？!?]/u.test(character) ? base + 210
+    : /[，、；：,;:]/u.test(character) ? base + 105
+      : base;
+}
+
+export function reconcileMediaPaths(previous, next, limit) {
+  const desired = next.slice(-Math.max(0, limit));
+  return {
+    kept: desired.filter((path) => previous.includes(path)),
+    added: desired.filter((path) => !previous.includes(path)),
+    removed: previous.filter((path) => !desired.includes(path)),
+  };
+}
+
 export function shouldHandleSceneShortcut({ key, interactive, galleryOpen }) {
   return (key === "Enter" || key === " ") && !interactive && !galleryOpen;
 }

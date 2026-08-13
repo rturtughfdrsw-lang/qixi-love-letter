@@ -6,10 +6,13 @@ import {
   advanceState,
   createSceneState,
   formatElapsed,
+  reconcileMediaPaths,
+  reorderHandmadePhotos,
   resetSceneState,
   selectLoveWindow,
   selectMemoryBatch,
   shouldHandleSceneShortcut,
+  typewriterDelay,
 } from "../js/scenes.js";
 
 function createButtonDouble() {
@@ -123,6 +126,30 @@ test("advance ignores input while a transition is locked", () => {
 test("photo stack moves only its top item to the bottom", () => {
   assert.deepEqual(rotateStack(["a", "b", "c"]), ["b", "c", "a"]);
   assert.deepEqual(rotateStack(["only"]), ["only"]);
+});
+
+test("handmade photos begin with the original sixth item without mutating input", () => {
+  const photos = ["1", "2", "3", "4", "5", "6", "7"];
+  assert.deepEqual(reorderHandmadePhotos(photos), ["6", "1", "2", "3", "4", "5", "7"]);
+  assert.deepEqual(photos, ["1", "2", "3", "4", "5", "6", "7"]);
+});
+
+test("typewriter timing pauses on punctuation and remains readable for long copy", () => {
+  assert.equal(typewriterDelay("你", 20), 82);
+  assert.ok(typewriterDelay("。", 20) > typewriterDelay("你", 20));
+  assert.ok(typewriterDelay("你", 240) >= 38);
+  assert.ok(typewriterDelay("你", 240) < 82);
+});
+
+test("media reconciliation keeps existing paths and adds only the new top photo", () => {
+  assert.deepEqual(
+    reconcileMediaPaths(["01", "02", "03"], ["02", "03", "04"], 3),
+    { kept: ["02", "03"], added: ["04"], removed: ["01"] },
+  );
+  assert.deepEqual(
+    reconcileMediaPaths(["01"], ["01", "02"], 3),
+    { kept: ["01"], added: ["02"], removed: [] },
+  );
 });
 
 test("formats relationship time with stable two-digit clock fields", () => {
