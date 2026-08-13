@@ -13,6 +13,26 @@ test("every declared local asset exists", async () => {
   }
 });
 
+test("love scene has one lightweight WebP preview for every together original", async () => {
+  assert.equal(assets.togetherLovePreviews.length, assets.together.length);
+  assert.equal(assets.togetherLovePreviews.length, 20);
+  assert.ok(assets.togetherLovePreviews.every((path) => path.endsWith(".webp")));
+
+  for (const relativePath of assets.togetherLovePreviews) {
+    const url = new URL(`../${relativePath}`, import.meta.url);
+    await assert.doesNotReject(access(fileURLToPath(url)), relativePath);
+  }
+});
+
+test("love scene uses previews while the gallery keeps together originals", async () => {
+  const scenes = await readFile(new URL("../js/scenes.js", import.meta.url), "utf8");
+  const galleries = await readFile(new URL("../js/galleries.js", import.meta.url), "utf8");
+
+  assert.match(scenes, /model\.assets\?\.togetherLovePreviews/);
+  assert.match(galleries, /assets\.together/);
+  assert.doesNotMatch(galleries, /togetherLovePreviews/);
+});
+
 test("index exposes the required application landmarks", async () => {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 

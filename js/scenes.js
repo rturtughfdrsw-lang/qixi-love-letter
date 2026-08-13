@@ -710,7 +710,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
 
     const photoLayer = element("div", "love-memory-layer");
     photoLayer.setAttribute("aria-hidden", "true");
-    const togetherPhotos = model.assets?.together ?? [];
+    const togetherPhotos = model.assets?.togetherLovePreviews ?? model.assets?.together ?? [];
     const selected = selectLoveWindow(togetherPhotos, beatIndex);
     selected.forEach((src) => {
       photoLayer.append(createLovePhoto(src, togetherPhotos.indexOf(src)));
@@ -740,7 +740,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     copy.classList.toggle("love-copy--need", beat.kind === "love-need");
     updateCopyContents(copy, beat.paragraphs);
 
-    const togetherPhotos = model.assets?.together ?? [];
+    const togetherPhotos = model.assets?.togetherLovePreviews ?? model.assets?.together ?? [];
     const selected = selectLoveWindow(togetherPhotos, beatIndex);
     const photoLayer = scene.querySelector(".love-memory-layer");
     const current = [...photoLayer.children].map(({ dataset }) => dataset.src);

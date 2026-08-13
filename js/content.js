@@ -1,5 +1,32 @@
 export const relationshipStart = "2026-06-10T00:00:00+08:00";
 
+const together = Object.freeze([
+  "assets/images/together/0FDD8F17C0FAF83E57CC86A6F6BB13E1.png",
+  "assets/images/together/IMG_5547.jpeg",
+  "assets/images/together/IMG_5550.jpeg",
+  "assets/images/together/IMG_5554.jpeg",
+  "assets/images/together/IMG_5555.jpeg",
+  "assets/images/together/IMG_5656.jpeg",
+  "assets/images/together/IMG_5670.jpeg",
+  "assets/images/together/IMG_6342.jpeg",
+  "assets/images/together/IMG_6347.jpeg",
+  "assets/images/together/IMG_6348.jpeg",
+  "assets/images/together/IMG_6371.jpg",
+  "assets/images/together/IMG_6489.jpeg",
+  "assets/images/together/IMG_9572.jpeg",
+  "assets/images/together/IMG_9576.jpeg",
+  "assets/images/together/IMG_9631.jpeg",
+  "assets/images/together/IMG_9672.jpeg",
+  "assets/images/together/IMG_9680.jpeg",
+  "assets/images/together/IMG_9690.jpeg",
+  "assets/images/together/IMG_9691.jpeg",
+  "assets/images/together/IMG_9705.jpeg",
+]);
+
+const togetherLovePreviews = Object.freeze(together.map((path) => path
+  .replace("assets/images/together/", "assets/generated/together-love/")
+  .replace(/\.[^.]+$/, ".webp")));
+
 export const assets = Object.freeze({
   letter: Object.freeze([
     "assets/images/素材/01.jpeg",
@@ -34,28 +61,8 @@ export const assets = Object.freeze({
     "assets/images/guo-jingtian-daily/fc694b764d8ded77c0516a04a94db4.jpg",
     "assets/images/guo-jingtian-daily/live_photo_paired_photo_A3353D2C-E0D3-405F-B308-ADFBD054496E.JPEG",
   ]),
-  together: Object.freeze([
-    "assets/images/together/0FDD8F17C0FAF83E57CC86A6F6BB13E1.png",
-    "assets/images/together/IMG_5547.jpeg",
-    "assets/images/together/IMG_5550.jpeg",
-    "assets/images/together/IMG_5554.jpeg",
-    "assets/images/together/IMG_5555.jpeg",
-    "assets/images/together/IMG_5656.jpeg",
-    "assets/images/together/IMG_5670.jpeg",
-    "assets/images/together/IMG_6342.jpeg",
-    "assets/images/together/IMG_6347.jpeg",
-    "assets/images/together/IMG_6348.jpeg",
-    "assets/images/together/IMG_6371.jpg",
-    "assets/images/together/IMG_6489.jpeg",
-    "assets/images/together/IMG_9572.jpeg",
-    "assets/images/together/IMG_9576.jpeg",
-    "assets/images/together/IMG_9631.jpeg",
-    "assets/images/together/IMG_9672.jpeg",
-    "assets/images/together/IMG_9680.jpeg",
-    "assets/images/together/IMG_9690.jpeg",
-    "assets/images/together/IMG_9691.jpeg",
-    "assets/images/together/IMG_9705.jpeg",
-  ]),
+  together,
+  togetherLovePreviews,
   music: "assets/music/bgm.mp3",
 });
 
