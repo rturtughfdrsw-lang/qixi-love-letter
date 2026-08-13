@@ -30,7 +30,21 @@ test("old photos are never re-appended during a beat update", () => {
   const updateEnd = source.indexOf("const renderGenericScene", updateStart);
   const updateBody = source.slice(updateStart, updateEnd);
   assert.doesNotMatch(updateBody, /desiredMedia\.forEach[\s\S]*mediaStage\.append\(card\)/);
+  assert.doesNotMatch(updateBody, /\.remove\(\)/);
   assert.match(updateBody, /changes\.added/);
+});
+
+test("love scene only appends photos and never removes an earlier memory", () => {
+  const updateStart = source.indexOf("const updateLoveScene");
+  const updateEnd = source.indexOf("const syncLastScene", updateStart);
+  const updateBody = source.slice(updateStart, updateEnd);
+  assert.doesNotMatch(updateBody, /\.remove\(\)/);
+  assert.match(updateBody, /changes\.added/);
+});
+
+test("relationship counter stops scheduling when its beat becomes hidden", () => {
+  assert.match(source, /const stopRelationshipCounter\s*=/);
+  assert.match(source, /if \(!visible\) stopRelationshipCounter\(\)/);
 });
 
 test("photo entrance animation is opt-in instead of attached to every photo", () => {

@@ -197,10 +197,10 @@ test("scene keyboard shortcuts ignore interactive controls and open galleries", 
   assert.equal(shouldHandleSceneShortcut({ key: "ArrowRight", interactive: false, galleryOpen: false }), false);
 });
 
-test("love climax advances through all photos while keeping at most ten mounted", () => {
+test("love climax keeps every revealed photo mounted until the scene ends", () => {
   const photos = Array.from({ length: 20 }, (_, index) => `photo-${index + 1}`);
 
   assert.deepEqual(selectLoveWindow(photos, 0), ["photo-1", "photo-2", "photo-3"]);
-  assert.deepEqual(selectLoveWindow(photos, 3), photos.slice(2, 12));
-  assert.deepEqual(selectLoveWindow(photos, 6), photos.slice(10, 20));
+  assert.deepEqual(selectLoveWindow(photos, 3), photos.slice(0, 12));
+  assert.deepEqual(selectLoveWindow(photos, 6), photos.slice(0, 20));
 });

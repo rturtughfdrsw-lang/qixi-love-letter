@@ -43,10 +43,9 @@ export function selectMemoryBatch(paths, start, count) {
   return paths.slice(Math.max(0, start), Math.max(0, start) + Math.max(0, count));
 }
 
-export function selectLoveWindow(paths, beatIndex, batchSize = 3, limit = 10) {
+export function selectLoveWindow(paths, beatIndex, batchSize = 3) {
   const end = Math.min(paths.length, Math.max(0, beatIndex + 1) * batchSize);
-  const start = Math.max(0, end - limit);
-  return paths.slice(start, end);
+  return paths.slice(0, end);
 }
 
 export function reorderHandmadePhotos(items) {
@@ -83,6 +82,17 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   const reorderedInitialBookOrder = reorderHandmadePhotos(initialBookOrder);
   let bookOrder = [...reorderedInitialBookOrder];
   const typewriter = createTypewriter({ reducedMotion, delayFor: typewriterDelay });
+  let relationshipCounterTimeout = null;
+  let activeRelationshipCounter = null;
+  const stopRelationshipCounter = () => {
+    if (relationshipCounterTimeout !== null) {
+      clearTimeout(relationshipCounterTimeout);
+      timeouts.delete(relationshipCounterTimeout);
+      relationshipCounterTimeout = null;
+    }
+    if (activeRelationshipCounter) activeRelationshipCounter.dataset.running = "false";
+    activeRelationshipCounter = null;
+  };
   const sceneLabels = {
     letter: "LETTER · 02",
     gifts: "MEMORIES · GIFTS",
@@ -106,6 +116,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
 
   const clearPending = () => {
     typewriter.cancel();
+    stopRelationshipCounter();
     for (const timeout of timeouts) clearTimeout(timeout);
     timeouts.clear();
     for (const cleanup of cleanups) cleanup();
@@ -271,10 +282,10 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     return figure;
   };
 
-  const mediaThroughBeat = (scene, beatIndex, limit = 4) => scene.beats
-    .slice(0, beatIndex + 1)
-    .flatMap((beat) => beat.media)
-    .slice(-limit);
+  const mediaThroughBeat = (scene, beatIndex, limit = Infinity) => {
+    const media = scene.beats.slice(0, beatIndex + 1).flatMap((beat) => beat.media);
+    return Number.isFinite(limit) ? media.slice(-Math.max(0, limit)) : media;
+  };
 
   const preloadUpcomingMedia = () => {
     const scene = model.scenes[state.sceneIndex];
@@ -304,7 +315,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     const mediaStage = element("div", "memory-media");
     mediaStage.setAttribute("aria-label", "与这段文字对应的照片");
     const allMedia = sceneModel.beats.flatMap((entry) => entry.media);
-    const visibleMedia = mediaThroughBeat(sceneModel, beatIndex, 4);
+    const visibleMedia = mediaThroughBeat(sceneModel, beatIndex);
     visibleMedia.forEach((item) => {
       const slot = allMedia.findIndex(({ src }) => src === item.src);
       mediaStage.append(createPhotoCard(item, slot, true));
@@ -350,15 +361,10 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     updateCopyContents(copy, beat.paragraphs);
 
     const mediaStage = scene.querySelector(".memory-media");
-    const limit = 4;
-    const desiredMedia = mediaThroughBeat(sceneModel, beatIndex, limit);
+    const desiredMedia = mediaThroughBeat(sceneModel, beatIndex);
     const desiredPaths = desiredMedia.map(({ src }) => src);
     const currentPaths = [...mediaStage.children].map(({ dataset }) => dataset.src);
-    const changes = reconcileMediaPaths(currentPaths, desiredPaths, limit);
-
-    for (const card of [...mediaStage.children]) {
-      if (changes.removed.includes(card.dataset.src)) card.remove();
-    }
+    const changes = reconcileMediaPaths(currentPaths, desiredPaths, desiredPaths.length);
     const allMedia = sceneModel.beats.flatMap((entry) => entry.media);
     for (const src of changes.added) {
       const item = desiredMedia.find((entry) => entry.src === src);
@@ -586,26 +592,32 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
       );
       counter.querySelector(".relationship-counter__day-row").append(days, daysLabel);
       copy.after(counter);
-
+    }
+    if (counter) counter.hidden = !visible;
+    if (!visible) stopRelationshipCounter();
+    if (counter && visible && counter.dataset.running !== "true") {
+      activeRelationshipCounter = counter;
+      counter.dataset.running = "true";
       let previous = "";
       const update = () => {
+        if (counter.dataset.running !== "true" || counter.hidden || !counter.isConnected) return;
         const formatted = formatElapsed(calculateElapsed(relationshipStart));
         const next = `${formatted.days}|${formatted.clock}`;
-        days.textContent = formatted.days;
-        clock.textContent = formatted.clock;
+        counter.querySelector(".relationship-counter__days").textContent = formatted.days;
+        counter.querySelector(".relationship-counter__clock").textContent = formatted.clock;
         if (previous && previous !== next) counter.classList.remove("is-ticking");
         requestAnimationFrame(() => counter.classList.add("is-ticking"));
         previous = next;
         const wait = 1000 - (Date.now() % 1000) + 5;
-        const timeout = setTimeout(() => {
-          timeouts.delete(timeout);
-          if (counter.isConnected) update();
+        relationshipCounterTimeout = setTimeout(() => {
+          timeouts.delete(relationshipCounterTimeout);
+          relationshipCounterTimeout = null;
+          update();
         }, wait);
-        timeouts.add(timeout);
+        timeouts.add(relationshipCounterTimeout);
       };
       update();
     }
-    if (counter) counter.hidden = !visible;
     return result;
   };
 
@@ -706,10 +718,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     const selected = selectLoveWindow(togetherPhotos, beatIndex);
     const photoLayer = scene.querySelector(".love-memory-layer");
     const current = [...photoLayer.children].map(({ dataset }) => dataset.src);
-    const changes = reconcileMediaPaths(current, selected, 10);
-    for (const frame of [...photoLayer.children]) {
-      if (changes.removed.includes(frame.dataset.src)) frame.remove();
-    }
+    const changes = reconcileMediaPaths(current, selected, selected.length);
     for (const src of changes.added) {
       photoLayer.append(createLovePhoto(src, togetherPhotos.indexOf(src)));
     }
