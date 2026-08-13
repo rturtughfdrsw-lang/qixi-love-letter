@@ -2,7 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createMusicController } from "../js/music.js";
 import { rotateStack } from "../js/galleries.js";
-import { advanceState, createSceneState, formatElapsed } from "../js/scenes.js";
+import {
+  advanceState,
+  createSceneState,
+  formatElapsed,
+  selectMemoryBatch,
+} from "../js/scenes.js";
 
 function createButtonDouble() {
   const attributes = new Map();
@@ -122,4 +127,16 @@ test("formats relationship time with stable two-digit clock fields", () => {
     formatElapsed({ days: 65, hours: 1, minutes: 2, seconds: 3 }),
     { days: "65", clock: "01 小时 · 02 分钟 · 03 秒" },
   );
+});
+
+test("memory climax selects bounded deterministic photo batches", () => {
+  const paths = Array.from({ length: 20 }, (_, index) => `photo-${index}`);
+
+  assert.deepEqual(selectMemoryBatch(paths, 0, 4), [
+    "photo-0", "photo-1", "photo-2", "photo-3",
+  ]);
+  assert.deepEqual(selectMemoryBatch(paths, 4, 4), [
+    "photo-4", "photo-5", "photo-6", "photo-7",
+  ]);
+  assert.deepEqual(selectMemoryBatch(paths, 18, 4), ["photo-18", "photo-19"]);
 });

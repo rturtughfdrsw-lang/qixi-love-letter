@@ -12,15 +12,20 @@ try {
   stage.setAttribute("aria-busy", "false");
   const audio = new Audio();
   const music = createMusicController({ audio, button: musicButton, src: assets.music });
+  model.assets = assets;
+  let galleryController = null;
   const player = createScenePlayer({
     stage,
     model,
     music,
-    galleries: null,
+    galleries: {
+      open(...args) { galleryController?.open(...args); },
+      reset() { galleryController?.reset(); },
+    },
     reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
   });
   player.start();
-  globalThis.__qixiApp = { model, music, player };
+  globalThis.__qixiApp = { model, music, player, setGalleries(controller) { galleryController = controller; } };
 } catch (error) {
   stage.setAttribute("aria-busy", "false");
   errorPanel.hidden = false;

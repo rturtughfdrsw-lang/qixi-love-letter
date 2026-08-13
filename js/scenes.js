@@ -34,6 +34,10 @@ export function formatElapsed(value) {
   };
 }
 
+export function selectMemoryBatch(paths, start, count) {
+  return paths.slice(Math.max(0, start), Math.max(0, start) + Math.max(0, count));
+}
+
 export function createScenePlayer({ stage, model, music, galleries, reducedMotion = false }) {
   let state = createSceneState();
   let destroyed = false;
@@ -453,9 +457,121 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     return result;
   };
 
+  const memoryPositions = [
+    { x: "-5%", y: "4%", r: "-7deg", s: 0.92 },
+    { x: "72%", y: "1%", r: "6deg", s: 0.82 },
+    { x: "-8%", y: "65%", r: "5deg", s: 0.78 },
+    { x: "74%", y: "62%", r: "-5deg", s: 0.88 },
+    { x: "10%", y: "-5%", r: "3deg", s: 0.7 },
+    { x: "79%", y: "35%", r: "8deg", s: 0.68 },
+    { x: "2%", y: "38%", r: "-8deg", s: 0.72 },
+    { x: "60%", y: "73%", r: "4deg", s: 0.74 },
+    { x: "21%", y: "70%", r: "-4deg", s: 0.64 },
+    { x: "63%", y: "-7%", r: "-3deg", s: 0.66 },
+  ];
+
+  const renderLoveScene = (sceneModel, beat, beatIndex) => {
+    stage.replaceChildren();
+    stage.className = "app-stage app-stage--love";
+    const scene = element("section", `scene scene--love is-entering ${beat.kind === "love-declaration" ? "is-declaration" : ""} ${beat.kind === "love-need" ? "is-need" : ""}`);
+    scene.dataset.scene = "love";
+    const inner = element("div", "scene__inner love-layout");
+    const header = element("header", "scene-heading");
+    header.append(
+      element("span", "scene-heading__label", sceneLabels.love),
+      element("span", "scene-heading__progress", `${String(beatIndex + 1).padStart(2, "0")} / ${String(sceneModel.beats.length).padStart(2, "0")}`),
+    );
+
+    const photoLayer = element("div", "love-memory-layer");
+    photoLayer.setAttribute("aria-hidden", "true");
+    const mountedCount = Math.min(10, Math.max(4, (beatIndex + 1) * 3));
+    const selected = selectMemoryBatch(model.assets?.together ?? [], 0, mountedCount);
+    selected.forEach((src, index) => {
+      const position = memoryPositions[index];
+      const frame = element("figure", "love-memory-photo");
+      frame.style.setProperty("--memory-x", position.x);
+      frame.style.setProperty("--memory-y", position.y);
+      frame.style.setProperty("--memory-r", position.r);
+      frame.style.setProperty("--memory-s", position.s);
+      frame.style.setProperty("--memory-index", index);
+      const image = element("img");
+      image.src = src;
+      image.alt = "";
+      image.loading = index < 2 ? "eager" : "lazy";
+      image.decoding = "async";
+      frame.append(image);
+      photoLayer.append(frame);
+    });
+
+    const copy = createParagraphs(beat.paragraphs);
+    copy.classList.add("love-copy-safe-zone");
+    if (beat.kind === "love-declaration") copy.classList.add("love-copy--declaration");
+    if (beat.kind === "love-need") copy.classList.add("love-copy--need");
+    const hint = element("button", "continue-hint");
+    hint.type = "button";
+    hint.hidden = true;
+    hint.textContent = "♡ 轻触继续";
+    hint.addEventListener("click", (event) => {
+      event.stopPropagation();
+      next();
+    });
+    inner.append(header, photoLayer, copy, hint);
+    scene.append(inner);
+    stage.append(scene);
+    requestAnimationFrame(() => scene.classList.add("is-visible"));
+    return { scene, hint };
+  };
+
+  const renderLastScene = (sceneModel, beat, beatIndex) => {
+    const result = renderGenericScene(sceneModel, beat, beatIndex);
+    result.scene.classList.add("scene--last-quiet");
+    const copy = result.scene.querySelector(".letter-copy");
+    if (beat.kind === "continued") copy.classList.add("last-copy--continued");
+    if (beat.kind === "signature") copy.classList.add("last-copy--signature");
+    return result;
+  };
+
+  const renderMenuScene = (sceneModel) => {
+    stage.replaceChildren();
+    stage.className = "app-stage app-stage--menu";
+    const scene = element("section", "scene scene--menu is-entering");
+    scene.dataset.scene = "menu";
+    const inner = element("div", "scene__inner final-layout");
+    inner.append(
+      element("span", "final-layout__eyebrow", "THE LETTER IS NEVER REALLY FINISHED"),
+      element("div", "final-layout__heart", "♡"),
+      element("h2", "final-layout__title", "我们的故事还在继续"),
+    );
+    const menu = element("nav", "final-menu");
+    menu.setAttribute("aria-label", "信件结束菜单");
+    for (const action of sceneModel.actions) {
+      const button = element("button", "final-menu__button", action.label);
+      button.type = "button";
+      button.dataset.action = action.id;
+      button.dataset.noAdvance = "true";
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (action.id === "replay") {
+          music.reset();
+          reset();
+        } else if (action.id === "guo-gallery") galleries?.open?.("guo", button);
+        else if (action.id === "together-gallery") galleries?.open?.("together", button);
+      });
+      menu.append(button);
+    }
+    inner.append(menu);
+    scene.append(inner);
+    stage.append(scene);
+    requestAnimationFrame(() => scene.classList.add("is-visible"));
+    return { scene, hint: null };
+  };
+
   const renderCurrentBeat = () => {
     const sceneModel = model.scenes[state.sceneIndex];
     const beat = sceneModel.beats[state.beatIndex];
+    if (sceneModel.id === "menu") return renderMenuScene(sceneModel);
+    if (sceneModel.id === "love") return renderLoveScene(sceneModel, beat, state.beatIndex);
+    if (sceneModel.id === "last") return renderLastScene(sceneModel, beat, state.beatIndex);
     if (sceneModel.id === "handmade") return renderHandmadeScene(sceneModel, beat, state.beatIndex);
     if (sceneModel.id === "future") return renderFutureScene(sceneModel, beat, state.beatIndex);
     if (sceneModel.id === "change") return renderChangeScene(sceneModel, beat, state.beatIndex);
@@ -471,8 +587,10 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     const paragraphCount = model.scenes[state.sceneIndex].beats[state.beatIndex].paragraphs.length;
     await delay(Math.min(1900, 620 + paragraphCount * 210));
     if (destroyed) return;
-    hint.hidden = false;
-    requestAnimationFrame(() => hint.classList.add("is-visible"));
+    if (hint) {
+      hint.hidden = false;
+      requestAnimationFrame(() => hint.classList.add("is-visible"));
+    }
     state = { ...state, phase: "waiting", locked: false };
   };
 
