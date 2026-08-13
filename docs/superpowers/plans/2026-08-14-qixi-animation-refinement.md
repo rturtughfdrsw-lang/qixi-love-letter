@@ -122,3 +122,31 @@
 - [ ] **Step 6: Verify text-only layouts** at 320×568, 390×844, and desktop widths with no horizontal overflow.
 - [ ] **Step 7: Verify replay, timer, both galleries, exactly three final buttons, resource responses, and empty console errors.**
 - [ ] **Step 8: Commit any test-proven corrections**, then run the full suite again.
+
+### Task 7: Persistent scene correction
+
+**Files:**
+- Modify: `js/scenes.js`
+- Modify: `css/style.css`
+- Modify: `tests/controllers.test.mjs`
+- Create: `tests/scene-persistence.test.mjs`
+
+**Interfaces:**
+- Produces: `reconcilePersistentMedia(previousPaths: string[], desiredPaths: string[], limit: number)` where retained paths are never re-appended.
+- Produces: one persistent renderer record per active Scene containing stable `scene`, `inner`, `copy`, `progress`, and optional media/special nodes.
+- Produces: `updateCopyContents(copy: HTMLElement, paragraphs: string[]): HTMLElement[]`, which retains the copy shell and replaces only its paragraph children.
+
+- [ ] **Step 1: Write failing media persistence tests** asserting retained paths are reported as untouched, only the new path is appended, and completed new-photo animation state is cleared.
+- [ ] **Step 2: Run** `node --test tests/controllers.test.mjs` and verify the failure describes retained media being reordered or lacking a settled state.
+- [ ] **Step 3: Stop re-appending retained cards** in `updateMemoryScene`; remove only expired cards, append only added cards, and remove `.is-new-photo` on `animationend` with a timeout fallback.
+- [ ] **Step 4: Run controller tests** and verify the photo persistence behavior passes.
+- [ ] **Step 5: Write failing source-level persistence tests** asserting every multi-beat renderer has an in-place update path and same-scene updates do not call `stage.replaceChildren()`.
+- [ ] **Step 6: Run** `node --test tests/scene-persistence.test.mjs` and verify it fails for generic, future, change, counter, love, or last Scene updates.
+- [ ] **Step 7: Add a persistent active-scene renderer record** so `renderCurrentBeat` creates a shell only when `sceneIndex` changes and otherwise dispatches a local beat updater.
+- [ ] **Step 8: Keep the text card shell stable** by replacing only `.animated-line` children; preserve the card's background, opacity, transform and dimensions while the new typewriter runs.
+- [ ] **Step 9: Incrementally update special Scenes**: future/check and counter nodes update only when their beat requires them; love adds only new memory photos; last updates only copy and explicitly fading remainder nodes.
+- [ ] **Step 10: Restrict whole-scene CSS entrance and exit animations** to actual Scene changes; same-scene beat updates receive no Scene, background, or card animation class changes.
+- [ ] **Step 11: Run** `node --test tests/*.test.mjs` and `git diff --check`.
+- [ ] **Step 12: Browser verify node identity** before and after consecutive beats for `.scene`, `.letter-copy`, and existing `.memory-photo`, and verify only the new photo has an active entrance animation.
+- [ ] **Step 13: Browser verify background stability** in letter, change, counter, love and last Scenes at desktop and 390px mobile widths; verify no horizontal overflow or console errors.
+- [ ] **Step 14: Commit** with `fix: keep scene backgrounds and old photos still`.
