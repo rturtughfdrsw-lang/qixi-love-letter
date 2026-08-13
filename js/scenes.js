@@ -12,6 +12,10 @@ export function createSceneState() {
   return { sceneIndex: 0, beatIndex: 0, phase: "opening", locked: false };
 }
 
+export function resetSceneState() {
+  return createSceneState();
+}
+
 export function advanceState(state, { beatCount, sceneCount }) {
   if (state.locked || state.phase !== "waiting") return { ...state };
 
@@ -628,6 +632,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     stage.querySelector(".scene")?.classList.add("is-leaving");
     await delay(520);
     if (destroyed) return;
+    clearPending();
     await enterCurrentBeat();
   }
 
@@ -635,7 +640,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     clearPending();
     galleries?.reset?.();
     bookOrder = [...initialBookOrder];
-    state = createSceneState();
+    state = resetSceneState();
     renderOpening();
   }
 

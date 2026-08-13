@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createMusicController } from "../js/music.js";
-import { rotateStack } from "../js/galleries.js";
+import { rotateStack, wrapIndex } from "../js/galleries.js";
 import {
   advanceState,
   createSceneState,
   formatElapsed,
+  resetSceneState,
   selectMemoryBatch,
 } from "../js/scenes.js";
 
@@ -139,4 +140,15 @@ test("memory climax selects bounded deterministic photo batches", () => {
     "photo-4", "photo-5", "photo-6", "photo-7",
   ]);
   assert.deepEqual(selectMemoryBatch(paths, 18, 4), ["photo-18", "photo-19"]);
+});
+
+test("gallery navigation wraps in both directions", () => {
+  assert.equal(wrapIndex(-1, 3), 2);
+  assert.equal(wrapIndex(3, 3), 0);
+  assert.equal(wrapIndex(1, 3), 1);
+});
+
+test("replay state always returns to the unopened envelope", () => {
+  const current = { sceneIndex: 9, beatIndex: 2, phase: "waiting", locked: false };
+  assert.deepEqual(resetSceneState(current), createSceneState());
 });
