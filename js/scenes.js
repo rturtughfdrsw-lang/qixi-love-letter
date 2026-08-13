@@ -271,6 +271,43 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     return copy;
   };
 
+  const createSceneNavigation = (continueLabel = "♡ 轻触继续") => {
+    const navigation = element("div", "scene-navigation");
+    navigation.dataset.noAdvance = "true";
+
+    const hint = element("button", "continue-hint", continueLabel);
+    hint.type = "button";
+    hint.hidden = true;
+    hint.setAttribute("aria-label", "继续阅读");
+    hint.addEventListener("click", (event) => {
+      event.stopPropagation();
+      next();
+    });
+
+    const previousHint = element("button", "previous-hint", "← 返回上一页");
+    previousHint.type = "button";
+    previousHint.hidden = true;
+    previousHint.setAttribute("aria-label", "返回上一页");
+    previousHint.addEventListener("click", (event) => {
+      event.stopPropagation();
+      previous();
+    });
+
+    navigation.append(hint, previousHint);
+    return { navigation, hint, previousHint };
+  };
+
+  const hideSceneNavigation = (scene) => {
+    const hint = scene.querySelector(".continue-hint");
+    const previousHint = scene.querySelector(".previous-hint");
+    for (const button of [hint, previousHint]) {
+      if (!button) continue;
+      button.classList.remove("is-visible");
+      button.hidden = true;
+    }
+    return { hint, previousHint };
+  };
+
   const animateOnce = (node, className, duration = 1200) => {
     node.classList.add(className);
     let settled = false;
@@ -353,22 +390,14 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
       inner.append(counter);
     }
 
-    const hint = element("button", "continue-hint");
-    hint.type = "button";
-    hint.hidden = true;
-    hint.setAttribute("aria-label", "继续阅读");
-    hint.append(element("span", "continue-hint__heart", "♡"), document.createTextNode("轻触继续"));
-    hint.addEventListener("click", (event) => {
-      event.stopPropagation();
-      next();
-    });
+    const { navigation, hint, previousHint } = createSceneNavigation();
 
-    inner.append(header, copy, mediaStage, hint);
+    inner.append(header, copy, mediaStage, navigation);
     scene.append(inner);
     stage.append(scene);
     requestAnimationFrame(() => scene.classList.add("is-visible"));
     preloadUpcomingMedia();
-    return { scene, hint };
+    return { scene, hint, previousHint };
   };
 
   const updateMemoryScene = (sceneModel, beat, beatIndex) => {
@@ -395,10 +424,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     const counter = scene.querySelector(".gift-counter__current");
     if (counter) counter.textContent = beatIndex ? String(Math.min(10, beatIndex)).padStart(2, "0") : "♡";
 
-    const hint = scene.querySelector(".continue-hint");
-    hint.classList.remove("is-visible");
-    hint.hidden = true;
-    return { scene, hint };
+    return { scene, ...hideSceneNavigation(scene) };
   };
 
   const renderGenericScene = (sceneModel, beat, beatIndex) => {
@@ -412,19 +438,12 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
       element("span", "scene-heading__label", sceneLabels[sceneModel.id] ?? "LETTER"),
       element("span", "scene-heading__progress", `${String(beatIndex + 1).padStart(2, "0")} / ${String(sceneModel.beats.length).padStart(2, "0")}`),
     );
-    const hint = element("button", "continue-hint");
-    hint.type = "button";
-    hint.hidden = true;
-    hint.textContent = "♡ 轻触继续";
-    hint.addEventListener("click", (event) => {
-      event.stopPropagation();
-      next();
-    });
-    inner.append(header, createParagraphs(beat.paragraphs), hint);
+    const { navigation, hint, previousHint } = createSceneNavigation();
+    inner.append(header, createParagraphs(beat.paragraphs), navigation);
     scene.append(inner);
     stage.append(scene);
     requestAnimationFrame(() => scene.classList.add("is-visible"));
-    return { scene, hint };
+    return { scene, hint, previousHint };
   };
 
   const bookTransforms = [
@@ -499,19 +518,12 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     registerCleanup(() => stack.removeEventListener("click", onFlip));
     renderCards();
 
-    const hint = element("button", "continue-hint");
-    hint.type = "button";
-    hint.hidden = true;
-    hint.textContent = "♡ 继续读下去";
-    hint.addEventListener("click", (event) => {
-      event.stopPropagation();
-      next();
-    });
-    inner.append(header, copy, stack, element("p", "book-stack__tip", "轻触最上面的照片，慢慢翻看 ♡"), hint);
+    const { navigation, hint, previousHint } = createSceneNavigation("♡ 继续读下去");
+    inner.append(header, copy, stack, element("p", "book-stack__tip", "轻触最上面的照片，慢慢翻看 ♡"), navigation);
     scene.append(inner);
     stage.append(scene);
     requestAnimationFrame(() => scene.classList.add("is-visible"));
-    return { scene, hint };
+    return { scene, hint, previousHint };
   };
 
   const updateHandmadeScene = (sceneModel, beat, beatIndex) => {
@@ -519,10 +531,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     if (!scene) return renderHandmadeScene(sceneModel, beat, beatIndex);
     scene.querySelector(".scene-heading__progress").textContent = `${String(beatIndex + 1).padStart(2, "0")} / ${String(sceneModel.beats.length).padStart(2, "0")}`;
     updateCopyContents(scene.querySelector(".letter-copy"), beat.paragraphs);
-    const hint = scene.querySelector(".continue-hint");
-    hint.classList.remove("is-visible");
-    hint.hidden = true;
-    return { scene, hint };
+    return { scene, ...hideSceneNavigation(scene) };
   };
 
   const updateGenericScene = (sceneModel, beat, beatIndex) => {
@@ -531,10 +540,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     scene.dataset.beat = String(beatIndex);
     scene.querySelector(".scene-heading__progress").textContent = `${String(beatIndex + 1).padStart(2, "0")} / ${String(sceneModel.beats.length).padStart(2, "0")}`;
     updateCopyContents(scene.querySelector(".letter-copy"), beat.paragraphs);
-    const hint = scene.querySelector(".continue-hint");
-    hint.classList.remove("is-visible");
-    hint.hidden = true;
-    return { scene, hint };
+    return { scene, ...hideSceneNavigation(scene) };
   };
 
   const renderFutureScene = (sceneModel, beat, beatIndex) => {
@@ -707,19 +713,12 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     copy.classList.add("love-copy-safe-zone");
     if (beat.kind === "love-declaration") copy.classList.add("love-copy--declaration");
     if (beat.kind === "love-need") copy.classList.add("love-copy--need");
-    const hint = element("button", "continue-hint");
-    hint.type = "button";
-    hint.hidden = true;
-    hint.textContent = "♡ 轻触继续";
-    hint.addEventListener("click", (event) => {
-      event.stopPropagation();
-      next();
-    });
-    inner.append(header, photoLayer, copy, hint);
+    const { navigation, hint, previousHint } = createSceneNavigation();
+    inner.append(header, photoLayer, copy, navigation);
     scene.append(inner);
     stage.append(scene);
     requestAnimationFrame(() => scene.classList.add("is-visible"));
-    return { scene, hint };
+    return { scene, hint, previousHint };
   };
 
   const updateLoveScene = (sceneModel, beat, beatIndex) => {
@@ -743,10 +742,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
       photoLayer.append(createLovePhoto(src, togetherPhotos.indexOf(src)));
     }
 
-    const hint = scene.querySelector(".continue-hint");
-    hint.classList.remove("is-visible");
-    hint.hidden = true;
-    return { scene, hint };
+    return { scene, ...hideSceneNavigation(scene) };
   };
 
   const syncLastScene = (result, beat, beatIndex) => {
@@ -857,7 +853,7 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
   };
 
   const enterCurrentBeat = async () => {
-    const { hint } = renderCurrentBeat();
+    const { hint, previousHint } = renderCurrentBeat();
     const paragraphs = model.scenes[state.sceneIndex].beats[state.beatIndex].paragraphs;
     const copy = stage.querySelector(".letter-copy");
     const lines = copy ? [...copy.querySelectorAll(".animated-line")] : [];
@@ -872,6 +868,10 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
     if (hint) {
       hint.hidden = false;
       requestAnimationFrame(() => hint.classList.add("is-visible"));
+    }
+    if (previousHint && (state.sceneIndex > 0 || state.beatIndex > 0)) {
+      previousHint.hidden = false;
+      requestAnimationFrame(() => previousHint.classList.add("is-visible"));
     }
     state = { ...state, phase: "waiting", locked: false };
   };
@@ -912,6 +912,26 @@ export function createScenePlayer({ stage, model, music, galleries, reducedMotio
       beatCount: currentScene.beats.length,
       sceneCount: model.scenes.length,
     });
+    if (!nextState.locked) return;
+
+    const staysInScene = nextState.sceneIndex === state.sceneIndex;
+    state = nextState;
+    if (!staysInScene) {
+      stage.querySelector(".scene")?.classList.add("is-leaving");
+      await delay(520);
+      if (destroyed) return;
+      clearPending();
+    }
+    await enterCurrentBeat();
+  }
+
+  async function previous() {
+    if (state.locked || state.phase !== "waiting") return;
+    typewriter.cancel();
+    const previousBeatCount = state.sceneIndex > 0
+      ? model.scenes[state.sceneIndex - 1].beats.length
+      : 0;
+    const nextState = retreatState(state, { previousBeatCount });
     if (!nextState.locked) return;
 
     const staysInScene = nextState.sceneIndex === state.sceneIndex;

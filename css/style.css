@@ -207,16 +207,28 @@ img {
   object-fit: cover;
 }
 
-.continue-hint {
+.scene-navigation {
   position: fixed;
   z-index: 20;
   left: 50%;
   bottom: var(--safe-bottom);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: max-content;
+  max-width: calc(100vw - var(--safe-left) - var(--safe-right) - 1rem);
+  transform: translateX(-50%);
+}
+
+.continue-hint,
+.previous-hint {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
   min-width: 7.4rem;
+  min-height: 44px;
   padding: 0.62rem 1rem;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -225,8 +237,13 @@ img {
   color: var(--deep-rose);
   font-size: 0.78rem;
   letter-spacing: 0.12em;
-  transform: translateX(-50%);
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.previous-hint {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
 }
 
 .music-toggle {
@@ -800,20 +817,22 @@ img {
   font-size: 0.75rem;
 }
 
-.continue-hint {
+.continue-hint,
+.previous-hint {
   opacity: 0;
   cursor: pointer;
-  transform: translate(-50%, 0.7rem);
+  transform: translateY(0.7rem);
   transition: opacity 0.7s ease, transform 0.7s var(--ease-soft), background 0.25s ease;
 }
 
-.continue-hint.is-visible {
+.continue-hint.is-visible,
+.previous-hint.is-visible {
   opacity: 0.88;
-  transform: translate(-50%, 0);
-  animation: hint-float 2.4s 0.7s ease-in-out infinite;
+  transform: translateY(0);
 }
 
-.continue-hint:hover {
+.continue-hint:hover,
+.previous-hint:hover {
   background: rgba(255, 255, 255, 0.96);
 }
 
@@ -849,8 +868,22 @@ img {
   line-height: 2;
 }
 
-.scene--text-only .continue-hint {
+.scene--text-only .scene-navigation {
   bottom: max(calc(var(--safe-bottom) + 1rem), 1.4rem);
+}
+
+@media (max-width: 580px) {
+  .scene-navigation {
+    gap: 0.4rem;
+  }
+
+  .continue-hint,
+  .previous-hint {
+    min-width: 0;
+    padding-inline: 0.78rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+  }
 }
 
 @keyframes copy-card-in {

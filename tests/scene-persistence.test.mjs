@@ -52,3 +52,25 @@ test("photo entrance animation is opt-in instead of attached to every photo", ()
   assert.doesNotMatch(baseRule, /animation:/);
   assert.match(styles, /\.memory-photo\.is-entering-photo/);
 });
+
+test("scene navigation places continue before previous", () => {
+  assert.match(source, /const createSceneNavigation\s*=/);
+  const helperStart = source.indexOf("const createSceneNavigation");
+  const helperEnd = source.indexOf("const createPhotoCard", helperStart);
+  const helper = source.slice(helperStart, helperEnd);
+  assert.ok(helper.indexOf('"continue-hint"') < helper.indexOf('"previous-hint"'));
+  assert.ok(helper.indexOf("navigation.append(hint, previousHint)") > 0);
+  assert.match(styles, /\.scene-navigation\s*\{/);
+});
+
+test("previous navigation updates the current scene in place", () => {
+  assert.match(source, /async function previous\(\)/);
+  const previousStart = source.indexOf("async function previous()");
+  const previousEnd = source.indexOf("function reset()", previousStart);
+  const previousBody = source.slice(previousStart, previousEnd);
+  assert.match(previousBody, /previousBeatCount/);
+  assert.match(previousBody, /staysInScene/);
+  assert.match(previousBody, /enterCurrentBeat\(\)/);
+  assert.doesNotMatch(previousBody, /mediaStage\.append/);
+  assert.doesNotMatch(previousBody, /photoLayer\.append/);
+});
