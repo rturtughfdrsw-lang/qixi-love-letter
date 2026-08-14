@@ -3,7 +3,7 @@ import { createReadStream, statSync } from "node:fs";
 import { extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = process.cwd();
+const root = resolve(process.cwd(), process.argv[2] || ".");
 const port = Number(process.env.PORT || 4173);
 const mime = {
   ".html": "text/html; charset=utf-8",
